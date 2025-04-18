@@ -1,7 +1,7 @@
 from dotenv import load_dotenv
 import os
 # Change this import
-from langchain_openai import ChatOpenAI # <--- Changed from AzureChatOpenAI
+from langchain_openai import ChatOpenAI 
 import getpass
 
 # Load environment variables from .env
@@ -11,7 +11,7 @@ load_dotenv()
 if not os.environ.get("OPENAI_API_KEY"):
   os.environ["OPENAI_API_KEY"] = getpass.getpass("Enter your OpenAI API key: ")
 
-# Instantiate ChatOpenAI instead of AzureChatOpenAI
+# Instantiate ChatOpenAI 
 llm = ChatOpenAI(
     model="gpt-3.5-turbo" # Or "gpt-4", "gpt-4-turbo", etc. - specify the model you want to use
     # No need for endpoint, deployment, or api_version here
