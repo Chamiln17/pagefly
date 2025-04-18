@@ -186,4 +186,4 @@ print(result['landing_page_code'])
 - **Interactivity:**  
   - Allow users to submit edits, then trigger only the relevant graph nodes again.  
 - **Extensibility:**   
-  - Add more agents (e.g., image suggester,
+  - Add more agents (e.g., image generator)
