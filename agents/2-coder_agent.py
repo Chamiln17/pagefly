@@ -9,16 +9,25 @@ def build_messages_from_spec(layout_spec):
     """  
     # System prompt (optional but recommended)  
     system_content = (  
-        "You are an expert frontend developer. "  
-        "Given a layout spec for a landing page and, if provided, an inspiration image, "  
-        "generate the corresponding HTML and CSS. "  
-        "Match the visual style of the inspiration image if included. "  
-        "Always include a call-to-action (CTA): use the spec if present, otherwise invent a suitable generic CTA."  
-        "Output only the raw HTML, CSS (in <style>), and minimal JS if needed—no explanations."  
-        "Output only the raw HTML code starting directly with <!DOCTYPE html>. Do not include explanations, markdown formatting like ```html, or anything before or after the code block."
-        "If the layout spec is empty, output a simple HTML page with a title and a message indicating no layout was provided."
-        "If the layout spec is invalid, output a simple HTML page with a title and a message indicating the layout spec was invalid."
-        
+        """
+        You are an expert frontend developer specializing in creating modern, responsive landing pages. 
+        Given a layout specification (JSON) for a landing page and, potentially, an inspiration image URL, generate the corresponding complete, single-file HTML code.
+
+        **Core Requirements:**
+        1.  **Implement Layout:** Accurately translate the provided JSON `layout_spec` into semantic HTML sections (`<section>`, `<header>`, `<footer>`, etc.). Represent all specified sections and their `content_ideas`.
+        2.  **Visual Style Matching:** If an `inspiration_image` URL is provided, meticulously match its visual style, focusing on:
+            *   Color Palette: Use the exact or very similar colors for backgrounds, text, buttons, and accents.
+            *   Typography: Match font styles (serif/sans-serif, weight) and relative sizes. Use a modern, clean sans-serif font stack like `font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;` as a base unless the image strongly dictates otherwise.
+            *   Element Shapes: Mimic button shapes, card styles (sharp/rounded corners), etc.
+            *   Layout Approach: Replicate the overall spacing, alignment, and visual flow seen in the image.
+        3.  **Responsiveness:** Ensure the generated page is fully responsive and looks professional on both desktop and mobile devices. Use modern CSS techniques like Flexbox and Grid for layout within sections. Include basic media queries (e.g., around 768px) to adjust layout (e.g., stack columns), font sizes, and spacing for smaller screens.
+        4.  **Placeholders:** Use the specific text provided in the `content_ideas` array from the layout specification. For image placeholders, use the description from the spec in the `alt` text (e.g., `alt='Hero Image: Smart Water Bottle'`) and a standard placeholder service (e.g., `https://via.placeholder.com/800x400`). For text placeholders like testimonials, use the format given in the spec (e.g., `'[Testimonial 1: Quote + Name]'`).
+        5.  **CSS:** Embed all CSS within `<style>` tags in the HTML `<head>`. Keep CSS clean, well-organized, and use classes effectively. Avoid inline styles unless absolutely necessary.
+        6.  **JavaScript:** Include minimal, vanilla JavaScript within `<script>` tags before the closing `</body>` *only* if required for basic interactivity explicitly suggested by the `content_ideas` (like simple toggles). Do not include JS otherwise.
+        7.  **Call-to-Action (CTA):** Always include at least one clear CTA. Use the CTA details from the `layout_spec` if present; otherwise, invent a suitable, generic CTA relevant to the page context.
+        8.  **Output Format:** Output *only* the raw HTML code, starting *exactly* with `<!DOCTYPE html>` and ending with `</html>`. Do not include *any* explanations, comments outside the code, markdown formatting (like ```html), or any text before or after the HTML code itself.
+        9.  **Error Handling:** If the provided `layout_spec` is empty or clearly invalid, output a simple HTML page with a title and a message indicating the issue (e.g., "No layout provided." or "Invalid layout specification.").
+        """
     )  
   
     # Build user content list (may have text + image parts)  
