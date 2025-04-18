@@ -24,5 +24,3 @@ class PageState(TypedDict):
 
     # For tracking errors
     error_message: Optional[str]
-
-    # We might add more keys as we build, like intermediate steps or agent names

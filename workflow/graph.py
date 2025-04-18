@@ -9,9 +9,7 @@ from langgraph.graph import StateGraph, END
 # Import agent runnables and state definition
 from core.state import PageState
 from agents.layout_agent import get_layout_agent_runnable
-from agents.codegen_agent import get_codegen_agent_runnable
-from agents.evaluation_agent import get_evaluation_agent_runnable
-from agents.suggestion_agent import get_suggestion_agent_runnable
+from agents.coder_agent import run_codegen_with_image
 
 
 # Helper function to run an agent node
@@ -120,9 +118,9 @@ def create_graph(llm: ChatOpenAI):
 
     # Get agent runnables, passing the initialized LLM
     layout_agent = get_layout_agent_runnable(llm)
-    codegen_agent = get_codegen_agent_runnable(llm)
-    evaluation_agent = get_evaluation_agent_runnable(llm)
-    suggestion_agent = get_suggestion_agent_runnable(llm)
+    codegen_agent = run_codegen_with_image(llm)
+    evaluation_agent = None  # Placeholder for evaluation agent, replace with actual runnable
+    suggestion_agent = None  # Placeholder for suggestion agent, replace with actual runnable
 
     # Create graph instance
     graph = StateGraph(PageState)
