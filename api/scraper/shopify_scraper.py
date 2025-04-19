@@ -3,7 +3,7 @@ from bs4 import BeautifulSoup
 import httpx
 from apify import Actor
 
-async def scrape_shopify_data(url: str) -> Dict:
+async def scrape_shopify_data(url: str, marketing_angle : str) -> Dict:
     await Actor.init()  # initialize Actor tools (logging, input, etc.)
 
     async with httpx.AsyncClient() as client:
@@ -68,5 +68,6 @@ async def scrape_shopify_data(url: str) -> Dict:
         "product_price": product_price,
         "compare_at_price": compare_at_price,
         "currency": currency,
-        "images": images
+        "images": images,
+        "marketing_angle": marketing_angle
     }

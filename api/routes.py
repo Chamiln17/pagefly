@@ -33,7 +33,7 @@ def preview_page(page_key: str):
 
 @router.post("/scrape-shopify")
 async def extract_product_data_and_generate(payload: ShopifyURLRequest):
-    scraped = await scrape_shopify_data(payload.url)
+    scraped = await scrape_shopify_data(payload.url, payload.marketing_angle)
 
     if not scraped["product_name"] or not scraped["product_price"] or not scraped["images"]:
         raise HTTPException(status_code=422, detail="Insufficient product data extracted.")
@@ -49,7 +49,8 @@ async def extract_product_data_and_generate(payload: ShopifyURLRequest):
         is_testimonials=True,
         is_pricing=True,
         is_contact=True,
-        is_footer=True
+        is_footer=True,
+        marketing_angle=payload.marketing_angle
     )
 
     # Create a unique key for preview
