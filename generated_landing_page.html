@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Algerian Sports Shoes</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            line-height: 1.6;
+            color: #333;
+        }
+        header, section, footer {
+            padding: 20px;
+            max-width: 1200px;
+            margin: auto;
+        }
+        .hero {
+            background: url('https://via.placeholder.com/1200x600') no-repeat center center/cover;
+            color: white;
+            text-align: center;
+            padding: 100px 20px;
+        }
+        .hero h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        .hero p {
+            font-size: 1.2rem;
+            margin-bottom: 20px;
+        }
+        .hero .cta-button {
+            background-color: #ff5722;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        .hero .cta-button:hover {
+            background-color: #e64a19;
+        }
+        .features, .testimonials, .cta, .faq {
+            margin: 40px 0;
+        }
+        .features h2, .testimonials h2, .cta h2, .faq h2 {
+            font-size: 2rem;
+            margin-bottom: 20px;
+        }
+        .features ul {
+            list-style: none;
+            padding: 0;
+            display: flex;
+            justify-content: space-around;
+        }
+        .features li {
+            text-align: center;
+            flex: 1;
+        }
+        .features li img {
+            width: 50px;
+            height: 50px;
+        }
+        .testimonials .testimonial {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .testimonials img {
+            border-radius: 50%;
+            margin-right: 20px;
+        }
+        .cta {
+            background-color: #f7f7f7;
+            text-align: center;
+            padding: 40px 20px;
+        }
+        .cta .cta-button {
+            background-color: #ff5722;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        .cta .cta-button:hover {
+            background-color: #e64a19;
+        }
+        .faq dl {
+            margin: 0;
+        }
+        .faq dt {
+            font-weight: bold;
+            margin-top: 20px;
+        }
+        .faq dd {
+            margin: 0 0 20px 0;
+        }
+        footer {
+            background-color: #333;
+            color: white;
+            text-align: center;
+            padding: 20px 0;
+        }
+        footer a {
+            color: #ff5722;
+            text-decoration: none;
+            margin: 0 10px;
+        }
+        footer .newsletter {
+            margin-top: 20px;
+        }
+        @media (max-width: 768px) {
+            .features ul {
+                flex-direction: column;
+            }
+            .testimonials .testimonial {
+                flex-direction: column;
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="hero">
+        <h1>Modern Design & Performance</h1>
+        <p>Perfect for Young Athletes</p>
+        <button class="cta-button">Shop Now</button>
+    </header>
+    <section class="features">
+        <h2>Key Features</h2>
+        <ul>
+            <li>
+                <img src="https://via.placeholder.com/50" alt="Lightweight Icon">
+                <p>Lightweight</p>
+                <p>Experience unmatched agility and speed.</p>
+            </li>
+            <li>
+                <img src="https://via.placeholder.com/50" alt="Durable Icon">
+                <p>Durable</p>
+                <p>Built to last through intense workouts.</p>
+            </li>
+            <li>
+                <img src="https://via.placeholder.com/50" alt="Breathable Icon">
+                <p>Breathable</p>
+                <p>Keep your feet cool and comfortable.</p>
+            </li>
+        </ul>
+    </section>
+    <section class="testimonials">
+        <h2>What Athletes Say</h2>
+        <div class="testimonial">
+            <img src="https://via.placeholder.com/100" alt="Athlete Testimonial">
+            <p>"These shoes have transformed my performance. Highly recommend!" - [Athlete Name]</p>
+        </div>
+        <div class="testimonial">
+            <img src="https://via.placeholder.com/100" alt="Athlete Testimonial">
+            <p>"Incredible comfort and style. A must-have for any athlete!" - [Athlete Name]</p>
+        </div>
+    </section>
+    <section class="cta">
+        <h2>Don't Miss Out!</h2>
+        <p>Reinforce the benefits of the shoes with a limited time offer.</p>
+        <button class="cta-button">Get Yours Today</button>
+    </section>
+    <section class="faq">
+        <h2>Frequently Asked Questions</h2>
+        <dl>
+            <dt>What sizes are available?</dt>
+            <dd>We offer a wide range of sizes to fit all athletes.</dd>
+            <dt>What materials are used?</dt>
+            <dd>Our shoes are made from high-quality, breathable materials.</dd>
+            <dt>How do I care for my shoes?</dt>
+            <dd>Simply wipe with a damp cloth and air dry.</dd>
+        </dl>
+    </section>
+    <footer>
+        <p>Follow us on:</p>
+        <a href="#">Facebook</a>
+        <a href="#">Instagram</a>
+        <a href="#">Twitter</a>
+        <div class="newsletter">
+            <p>Sign up for our newsletter:</p>
+            <form>
+                <input type="email" placeholder="Enter your email" required>
+                <button type="submit">Subscribe</button>
+            </form>
+        </div>
+        <p>&copy; 2023 Algerian Sports Shoes. All rights reserved.</p>
+    </footer>
+</body>
+</html>

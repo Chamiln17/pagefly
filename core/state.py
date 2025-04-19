@@ -1,26 +1,33 @@
+# core/state.py (Updated)
+
 from typing import TypedDict, List, Optional, Dict
 
-
 class PageState(TypedDict):
-    # Initial user inputs
-    product_description: str
-    target_audience: str
-    preferences: Optional[Dict]  # e.g., {'style': 'modern', 'main_color': 'blue'}
+    # --- Inputs (From User/Config) ---
+    product_description: Optional[str] # Might be needed for research
+    product_image_url: Optional[str]   # URL for image analysis
+    marketing_angle_input: Optional[str] # Provided by user (optional)
+    fixed_layout_input: Dict # User-provided layout structure (e.g., JSON describing sections)
+    language: str              # Target language for copy (e.g., 'en')
+    # Removed 'preferences' as theme might come from image analysis or fixed layout style
 
-    # Output from Agent 1 (Layout Researcher)
-    layout_spec: Optional[Dict]  # This will hold the JSON layout structure
+    # --- Agent Outputs ---
+    # Marketing Research Agent Output (if run)
+    marketing_strategy: Optional[Dict] # Researched angles, keywords, trends
 
-    # Output from Agent 2 (Code Generator)
-    landing_page_code: Optional[
-        Dict
-    ]  # e.g., {'html': ..., 'css': ...} or {'react': ...}
+    # Image Analysis Agent Output
+    product_image_analysis: Optional[Dict] # Description, features seen, style notes
 
-    # Output from Agent 3 (Evaluator)
+    # Copywriting Agent Output
+    generated_copy: Optional[Dict] # Structured copy (e.g., {'hero_headline': '...', 'feature_1_desc': '...'})
+
+    # HTML Generation Agent Output (previously landing_page_code)
+    generated_html: Optional[str] # The final HTML string
+
+    # --- Workflow Control & Errors ---
+    # Removed layout_spec as it's now an input (fixed_layout_input)
+    # Removed landing_page_code, replaced by generated_html
+    # Keep evaluation/suggestion fields if you plan to add them later
     evaluation_report: Optional[str]
-    improved_code: Optional[Dict]
-
-    # Output from Agent 4 (Suggestor)
     suggestions: Optional[List[Dict]]
-
-    # For tracking errors
     error_message: Optional[str]
