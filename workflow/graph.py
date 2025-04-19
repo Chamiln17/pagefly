@@ -157,8 +157,8 @@ def create_graph(llm: ChatOpenAI):
 
     # Initialize ALL agent runnables using the passed LLM
     # Use a capable model like gpt-4o for agents involving vision or complex reasoning/tool use
-    llm_vision = ChatOpenAI(model="gpt-4o", temperature=0.3, max_tokens=1024) # For image, copy, code
-    llm_research = ChatOpenAI(model="gpt-4o", temperature=0.5) # For agent/tool use
+    llm_vision = ChatOpenAI(model="gpt-4o", temperature=0.3, max_tokens=4095,  request_timeout=120) # For image, copy, code
+    llm_research = ChatOpenAI(model="gpt-4o", temperature=0.5,  max_tokens=4095,  request_timeout=120) # For agent/tool use
 
     image_analysis_runnable = get_image_analysis_runnable(llm_vision)
     marketing_research_runnable = get_marketing_research_runnable(llm_research) # Uses agent executor
@@ -216,7 +216,7 @@ if __name__ == "__main__":
         # Use a placeholder LLM for compilation testing if needed,
         # but invocation testing needs the real one passed potentially.
         # Using the real LLM here for simplicity if testing invocation.
-        llm_instance = ChatOpenAI(model="gpt-4o", temperature=0.3) # Or specific models as in create_graph
+        llm_instance = ChatOpenAI(model="gpt-4o", temperature=0.3, timeout=120) # Or specific models as in create_graph
 
         print("Attempting to create and compile the full graph...")
         try:
@@ -281,7 +281,7 @@ if __name__ == "__main__":
 
                 # Optionally save the test HTML output
                 if isinstance(final_html, str) and final_html.strip().lower().startswith("<!doctype html>"):
-                     with open("test_graph_output.html", "w", encoding="utf-8") as f:
+                     with open("test/test_graph_output.html", "w", encoding="utf-8") as f:
                          f.write(final_html)
                      print("\n--- Saved test output to test_graph_output.html ---")
 

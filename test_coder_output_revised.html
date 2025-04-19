@@ -5,114 +5,120 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ember Smart Mug</title>
     <style>
-        body {
-            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            background-color: #f0f4f8;
-            color: #333;
+        :root {
+            --clr-primary: #2b7a78;
+            --clr-secondary: #17252a;
+            --clr-background: #def2f1;
         }
-        header, section {
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background-color: var(--clr-background);
+            color: var(--clr-secondary);
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
             padding: 20px;
-            text-align: center;
         }
         .hero {
-            background-color: #e0f7fa;
+            background-color: var(--clr-primary);
+            color: white;
             padding: 60px 20px;
+            text-align: center;
         }
         .hero h1 {
-            font-size: 2.5em;
-            margin-bottom: 10px;
+            margin: 0;
+            font-size: 2.5rem;
         }
         .hero p {
-            font-size: 1.2em;
-            margin-bottom: 20px;
+            font-size: 1.2rem;
         }
         .hero button {
-            background-color: #00796b;
+            background-color: var(--clr-secondary);
             color: white;
-            padding: 10px 20px;
             border: none;
-            border-radius: 5px;
+            padding: 10px 20px;
+            font-size: 1rem;
             cursor: pointer;
-            font-size: 1em;
+            margin-top: 20px;
         }
-        .problem, .cta {
-            background-color: white;
-            margin: 20px 0;
+        .text-section {
             padding: 40px 20px;
-            border-radius: 10px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+        .text-section h2 {
+            font-size: 2rem;
+            margin-bottom: 20px;
         }
         .features {
             display: flex;
             justify-content: space-around;
-            flex-wrap: wrap;
-            background-color: #e8f5e9;
             padding: 40px 20px;
         }
         .feature-item {
-            flex: 1;
-            min-width: 250px;
-            margin: 10px;
-            padding: 20px;
             background-color: white;
-            border-radius: 10px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            flex: 1;
+            margin: 0 10px;
+            text-align: center;
         }
         .feature-item h3 {
+            font-size: 1.5rem;
             margin-bottom: 10px;
         }
-        .cta button {
-            background-color: #00796b;
+        .cta {
+            background-color: var(--clr-primary);
             color: white;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 1em;
+            padding: 40px 20px;
+            text-align: center;
         }
-        @media (max-width: 768px) {
-            .features {
-                flex-direction: column;
-                align-items: center;
-            }
+        .cta h2 {
+            font-size: 2rem;
+            margin-bottom: 20px;
+        }
+        .cta button {
+            background-color: var(--clr-secondary);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 1rem;
+            cursor: pointer;
         }
     </style>
 </head>
 <body>
-
-    <section class="hero" id="hero">
-        <h1>Never Sip Cold Coffee Again!</h1>
-        <p>Keep your drink perfectly hot for hours with the Ember Smart Mug.</p>
-        <button>Discover Ember</button>
-    </section>
-
-    <section class="problem" id="problem">
-        <h2>Tired of Cold Coffee?</h2>
-        <p>Your busy day demands focus. Don't let lukewarm coffee ruin your flow. Standard mugs just don't keep up.</p>
-    </section>
-
-    <section class="features" id="features">
-        <div class="feature-item">
-            <h3>Precision Temperature Control</h3>
-            <p>Set your ideal temperature via the Ember app.</p>
-        </div>
-        <div class="feature-item">
-            <h3>Extended Battery Life</h3>
-            <p>Enjoy hours of perfect warmth on a single charge.</p>
-        </div>
-        <div class="feature-item">
-            <h3>Sleek & Durable Design</h3>
-            <p>Looks great on any desk and built to last.</p>
-        </div>
-    </section>
-
-    <section class="cta" id="cta">
-        <h2>Upgrade Your Coffee Experience</h2>
-        <button>Shop Smart Mugs</button>
-    </section>
-
+    <div class="container">
+        <section class="hero" id="hero">
+            <h1>Never Sip Cold Coffee Again!</h1>
+            <p>Keep your drink perfectly hot for hours with the Ember Smart Mug.</p>
+            <button>Discover Ember</button>
+        </section>
+        <section class="text-section" id="problem">
+            <h2>Tired of Cold Coffee?</h2>
+            <p>Your busy day demands focus. Don't let lukewarm coffee ruin your flow. Standard mugs just don't keep up.</p>
+        </section>
+        <section class="features" id="features">
+            <div class="feature-item">
+                <h3>Precision Temperature Control</h3>
+                <p>Set your ideal temperature via the Ember app.</p>
+            </div>
+            <div class="feature-item">
+                <h3>Extended Battery Life</h3>
+                <p>Enjoy hours of perfect warmth on a single charge.</p>
+            </div>
+            <div class="feature-item">
+                <h3>Sleek & Durable Design</h3>
+                <p>Looks great on any desk and built to last.</p>
+            </div>
+        </section>
+        <section class="cta" id="cta">
+            <h2>Upgrade Your Coffee Experience</h2>
+            <button>Shop Smart Mugs</button>
+        </section>
+    </div>
 </body>
 </html>

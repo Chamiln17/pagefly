@@ -46,6 +46,7 @@ Generate concise, persuasive, and engaging copy for *all* the required text elem
 - Incorporate relevant details or style cues from the 'Product Image Analysis'.
 - Match the tone appropriate for the product and marketing context (e.g., professional, playful, urgent).
 - RETURN ONLY THE COPY—NO STYLES, NO LAYOUT CODE. Deliver one JSON object with these exact keys
+- **Be Concise:** Keep headlines punchy and descriptions brief (e.g., 1-2 sentences maximum per description field). Focus on the core benefit or feature. Avoid overly long paragraphs.
 **Output Format:**
 
 Output *only* a single JSON object.
