@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 app = FastAPI(title="Astro Page Generator")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:8080/"],  # React dev server
+    allow_origins=["*"],  # React dev server
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
