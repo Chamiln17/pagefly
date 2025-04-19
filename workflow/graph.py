@@ -19,6 +19,9 @@ from agents.coder_agent import get_codegen_agent_runnable # Changed import
 layout_agent_runnable = None
 codegen_agent_runnable = None
 
+
+# Define the node functions that will be used in the graph
+
 def layout_node(state: PageState):
     """
     Node to run the layout research agent.

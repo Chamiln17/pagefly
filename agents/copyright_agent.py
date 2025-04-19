@@ -205,7 +205,7 @@ if __name__ == "__main__":
                     {"id": "cta", "type": "call_to_action_simple", "required_copy": ["headline", "button_text"]}
                 ]
             },
-            "language": "english"  # Example language input
+            "language": "arabic"  # Example language input
         }
         # --- End Sample Inputs ---
 
@@ -218,7 +218,7 @@ if __name__ == "__main__":
             copy_result = copywriting_runnable.invoke(sample_state)
             print("\nOutput (Generated Copy JSON):")
             # Result should ideally be a dictionary parsed by JsonOutputParser
-            print(json.dumps(copy_result, indent=2))
+            print(json.dumps(copy_result, indent=2, ensure_ascii=False))
         except Exception as e:
             print(f"An error occurred: {e}")
             import traceback

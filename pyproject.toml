@@ -8,6 +8,7 @@ dependencies = [
     "fastapi>=0.115.12",
     "ipython>=9.1.0",
     "langchain>=0.3.23",
+    "langchain-community>=0.3.21",
     "langchain-openai>=0.3.14",
     "langgraph>=0.3.31",
     "openai>=1.75.0",

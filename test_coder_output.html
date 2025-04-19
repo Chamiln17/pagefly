@@ -1,0 +1,132 @@
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ember Smart Mug</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            background-color: #f0f4f8;
+            color: #333;
+        }
+        header, section {
+            padding: 20px;
+            margin: 10px;
+        }
+        #hero {
+            background-color: #e0f7fa;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 40px;
+            background-image: url('https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQt0CiX0sVdMAHRACvWpx1EqZNAbqIdvuT5nHsDWnOwjK33PjGdb4nyxGzXYDxzSAjYXjw&usqp=CAU');
+            background-size: cover;
+            background-position: center;
+            color: #fff;
+        }
+        #hero h1 {
+            font-size: 2.5em;
+            margin: 0;
+        }
+        #hero p {
+            font-size: 1.2em;
+        }
+        #hero button {
+            background-color: #00796b;
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            font-size: 1em;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        #problem, #cta {
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        #problem h2, #cta h2 {
+            font-size: 1.8em;
+            margin-bottom: 10px;
+        }
+        #problem p, #cta p {
+            font-size: 1em;
+            line-height: 1.6;
+        }
+        #features {
+            display: flex;
+            justify-content: space-between;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .feature-item {
+            flex: 1;
+            padding: 20px;
+            text-align: center;
+        }
+        .feature-item h3 {
+            font-size: 1.5em;
+            margin-bottom: 10px;
+        }
+        .feature-item p {
+            font-size: 1em;
+        }
+        #cta {
+            text-align: center;
+            padding: 40px;
+        }
+        #cta button {
+            background-color: #00796b;
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            font-size: 1em;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        @media (max-width: 768px) {
+            #features {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header id="hero">
+        <div>
+            <h1>Never Sip Cold Coffee Again!</h1>
+            <p>Keep your drink perfectly hot for hours with the Ember Smart Mug.</p>
+            <button>Discover Ember</button>
+        </div>
+    </header>
+    <section id="problem">
+        <h2>Tired of Cold Coffee?</h2>
+        <p>Your busy day demands focus. Don't let lukewarm coffee ruin your flow. Standard mugs just don't keep up.</p>
+    </section>
+    <section id="features">
+        <div class="feature-item">
+            <h3>Precision Temperature Control</h3>
+            <p>Set your ideal temperature via the Ember app.</p>
+        </div>
+        <div class="feature-item">
+            <h3>Extended Battery Life</h3>
+            <p>Enjoy hours of perfect warmth on a single charge.</p>
+        </div>
+        <div class="feature-item">
+            <h3>Sleek & Durable Design</h3>
+            <p>Looks great on any desk and built to last.</p>
+        </div>
+    </section>
+    <section id="cta">
+        <h2>Upgrade Your Coffee Experience</h2>
+        <button>Shop Smart Mugs</button>
+    </section>
+</body>
+</html>
+```
