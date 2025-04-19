@@ -84,19 +84,41 @@ def get_image_analysis_runnable(llm: ChatOpenAI):
     Returns a dictionary containing 'product_image_descriptions' (list of dicts).
     """
     def _wrapped_invoke(state_dict: Dict) -> Dict:
-        image_urls = state_dict.get("product_image_urls", [])
-        product_name = state_dict.get("product_name", "Unknown Product") # Get product name from state
-        descriptions_list = []
+        # --- Start Additions/Modifications ---
+        if not isinstance(state_dict, dict):
+            print("Error: Image Analysis node received non-dict input.")
+            return {"product_image_descriptions": [{"error": "Invalid node input type"}]}
 
+        image_urls = state_dict.get("product_image_urls") # Use .get() for safety
+        product_name = state_dict.get("product_name", "Unknown Product")
+
+        if not image_urls or not isinstance(image_urls, list):
+            print(f"Warning: 'product_image_urls' missing or not a list in state: {image_urls}")
+            # Return empty list but don't set error_message in state here, let node handle state
+            return {"product_image_descriptions": []}
+        # --- End Additions/Modifications ---
+
+        descriptions_list = [] # List to hold analysis dictionaries
         print(f"--- Analyzing {len(image_urls)} image(s) for '{product_name}' ---")
         for url in image_urls:
             # Call the core logic for each image
-            desc_obj = invoke_single_image_analysis(llm, url, product_name)
-            if desc_obj: # Only append if analysis was successful
-                # Convert Pydantic object to dict for state compatibility
-                descriptions_list.append(desc_obj.model_dump())
+            analysis_obj = invoke_single_image_analysis(llm, url, product_name)
 
-        # Return the result in a dictionary format suitable for updating the state
+            if analysis_obj: # Check if analysis returned something (could be None on error)
+                # Convert the Pydantic object to a dictionary
+                analysis_dict = analysis_obj.model_dump()
+
+                # Now add the extra key to the dictionary
+                analysis_dict['image_url_analyzed'] = url
+
+                # Append the complete dictionary to the list
+                descriptions_list.append(analysis_dict)
+            else:
+                # Handle case where analysis failed for a specific URL if needed
+                print(f"Warning: Analysis failed or returned None for URL: {url}")
+                # Optionally append an error dict:
+                # descriptions_list.append({"error": "Analysis failed", "image_url_analyzed": url})
+
         return {"product_image_descriptions": descriptions_list}
 
     return RunnableLambda(_wrapped_invoke)

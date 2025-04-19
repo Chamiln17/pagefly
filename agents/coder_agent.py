@@ -282,22 +282,22 @@ def invoke_codegen_logic(llm: ChatOpenAI, layout_spec: dict):
     return result.content
 
 
-# --- NEW Runnable Creation Function ---
 def get_codegen_agent_runnable(llm: ChatOpenAI):
-    """
-    Creates a LangChain runnable for the code generation agent.
-    This runnable expects a dictionary containing 'layout_spec'.
-    """
-    # Define the function that will be wrapped by RunnableLambda
-    # It takes the dictionary input from the graph state
-    def _wrapped_invoke(input_dict: dict):
-        layout_spec = input_dict.get("layout_spec") # Extract the spec
-        if not layout_spec:
-             return "<!DOCTYPE html><html><head><title>Error</title></head><body><h1>Error: Layout specification missing in input.</h1></body></html>"
-        # Call the core logic, passing the llm and extracted spec
-        return invoke_codegen_logic(llm, layout_spec)
+    """Creates the runnable for the HTML/CSS generation agent."""
+    def _wrapped_invoke(state_dict: Dict):
+        # This wrapper function receives the full state dictionary from LangGraph.
+        # It's responsible for calling the core logic with the correct parts of the state.
 
-    # Return the RunnableLambda
+        # Add validation *before* calling the logic function
+        if "fixed_layout_input" not in state_dict or "generated_copy" not in state_dict:
+             print("Error inside _wrapped_invoke: State missing 'fixed_layout_input' or 'generated_copy'.")
+             return "<!-- Error: Graph state missing required inputs for code generation. -->"
+
+        # Pass relevant parts of the state (the whole state dict in this case,
+        # as invoke_coder_logic expects 'inputs' dict) to the logic function.
+        # invoke_coder_logic will then extract what it needs.
+        return invoke_coder_logic(llm, state_dict)
+
     return RunnableLambda(_wrapped_invoke)
 
 

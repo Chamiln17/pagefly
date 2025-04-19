@@ -16,7 +16,7 @@ from langchain_core.runnables import RunnableLambda
 # Using f-string for cleaner multi-line definition
 copywriting_prompt_template = """
 
-You are an expert marketing copywriter tasked with generating compelling landing page content in {{language}}.
+You are a world‑class direct‑response copywriter who specialises in e‑commerce storytelling in {language} language.
 
 **Inputs:**
 
@@ -45,7 +45,7 @@ Generate concise, persuasive, and engaging copy for *all* the required text elem
 - Ensure the copy aligns strongly with the provided 'Marketing Angle/Strategy'.
 - Incorporate relevant details or style cues from the 'Product Image Analysis'.
 - Match the tone appropriate for the product and marketing context (e.g., professional, playful, urgent).
-
+- RETURN ONLY THE COPY—NO STYLES, NO LAYOUT CODE. Deliver one JSON object with these exact keys
 **Output Format:**
 
 Output *only* a single JSON object.
