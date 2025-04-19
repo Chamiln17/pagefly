@@ -49,7 +49,8 @@ async def extract_product_data_and_generate(payload: ShopifyURLRequest):
         is_testimonials=True,
         is_pricing=True,
         is_contact=True,
-        is_footer=True
+        is_footer=True,
+        marketing_angle=payload.marketing_angle
     )
 
     # Create a unique key for preview

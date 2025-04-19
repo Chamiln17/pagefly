@@ -12,7 +12,9 @@ class LandingPageParams(BaseModel):
     is_pricing: Optional[bool] = False
     is_contact: Optional[bool] = False
     is_footer: Optional[bool] = False
+    marketing_angle : Optional[str] = None
     
     
 class ShopifyURLRequest(BaseModel):
     url: HttpUrl
+    marketing_angle : Optional[str] = None
