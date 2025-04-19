@@ -11,20 +11,19 @@ async def scrape_shopify_data(url: str) -> Dict:
     soup = BeautifulSoup(response.content, 'html.parser')
 
      # Extract product title
-    title_tag = soup.select_one("h1") or soup.select_one("h1.product-title")
-    print("titles++++", title_tag)
-    product_name = title_tag.text.strip() if title_tag else None
+    title_tag = soup.select_one("h1.logo a[aria-label]")
+    product_name = title_tag.get("aria-label") if title_tag else None
     print("titles++++555", product_name)
 
     #  Extract price and compare at price (with currency symbols)
-    price_tag = soup.select_one("#ProductPrice, .product__price, [itemprop=price]")
-    compare_tag = soup.select_one("#ComparePrice span.money, .compare-price, [id*=Compare] span")
+    price_tag = soup.select_one(".product__price--regular")
+    compare_tag = soup.select_one(".product__price--compare")
     print("titles++++555", price_tag, compare_tag)
     price_raw = None
     if price_tag:
          price_raw = price_tag.get_text(strip=True) or price_tag.get("content")
-    compare_raw = compare_tag.text.strip() if compare_tag else None
-    print("titles++++555", price_raw, compare_raw)
+    #compare_raw = compare_tag.text.strip() if compare_tag else None
+    print("titles++++555999", price_raw)
 
     # 🧽Detect currency symbol
     currency_symbol = ""
@@ -47,15 +46,13 @@ async def scrape_shopify_data(url: str) -> Dict:
         return float("".join(c for c in p if c.isdigit() or c == "."))
 
     product_price = clean_price(price_raw)
-    compare_at_price = clean_price(compare_raw)
     
-    print("titles++++5uu", product_price, compare_at_price)
 
     # Limit to 6 valid image URLs
      # 🖼️ Extract high-quality product images (prefer "products" in URL)
     images = []
     media_tags = soup.select("img, source")
-    print("titles++++5uu", media_tags)
+    #print("titles++++5uu", media_tags)
 
     for tag in media_tags:
         src = tag.get("src") or tag.get("data-src") or tag.get("srcset") or tag.get("content")
@@ -72,7 +69,7 @@ async def scrape_shopify_data(url: str) -> Dict:
             continue
 
         # Optional: Prioritize images with "products" or from Shopify CDN
-        if "products" in src or "cdn.shopify.com" in src or 'mnml.la/cdn/shop' in src:
+        if "products" in src or "touchelab.com/cdn" in src or 'mnml.la/cdn/shop' in src:
             images.append(src)
 
         if len(images) >= 6:
@@ -84,7 +81,6 @@ async def scrape_shopify_data(url: str) -> Dict:
     return {
         "product_name": product_name,
         "product_price": product_price,
-        "compare_at_price": compare_at_price,
         "currency": currency,
         "images": images,
     }
