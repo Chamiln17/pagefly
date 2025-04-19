@@ -1,28 +1,33 @@
+# core/state.py (Corrected Version)
+
 from typing import TypedDict, List, Optional, Dict
 
-
 class PageState(TypedDict):
-    # Initial user inputs
-    product_description: str
-    target_audience: str
-    preferences: Optional[Dict]  # e.g., {'style': 'modern', 'main_color': 'blue'}
+    # --- Inputs (From User/Config) ---
+    product_name: Optional[str]        # Added: Name of the product being analyzed
+    product_description: Optional[str] # Kept: Might be needed for research
+    product_image_urls: Optional[List[str]] # List of image URLs for analysis (Input for image node)
+    marketing_angle_input: Optional[str] # Provided by user (optional)
+    fixed_layout_input: Dict # User-provided layout structure (e.g., JSON describing sections)
+    language: str              # Target language for copy (e.g., 'en')
+    # Removed redundant product_image_url
 
-    # Output from Agent 1 (Layout Researcher)
-    layout_spec: Optional[Dict]  # This will hold the JSON layout structure
+    # --- Agent Outputs ---
+    # Image Analysis Agent Output
+    product_image_descriptions: Optional[List[Dict]] # CORRECTED: List of analysis dicts (Output of image node)
 
-    # Output from Agent 2 (Code Generator)
-    landing_page_code: Optional[
-        Dict
-    ]  # e.g., {'html': ..., 'css': ...} or {'react': ...}
+    # Marketing Research Agent Output (if run)
+    marketing_strategy: Optional[Dict] # Researched angles, keywords, trends (Output of research node)
 
-    # Output from Agent 3 (Evaluator)
-    evaluation_report: Optional[str]
-    improved_code: Optional[Dict]
+    # Copywriting Agent Output
+    generated_copy: Optional[Dict] # Structured copy (Output of copywriting node)
 
-    # Output from Agent 4 (Suggestor)
-    suggestions: Optional[List[Dict]]
+    # HTML Generation Agent Output
+    generated_html: Optional[str] # The final HTML string (Output of coder node)
 
-    # For tracking errors
+    # --- Workflow Control & Errors ---
     error_message: Optional[str]
 
-    # We might add more keys as we build, like intermediate steps or agent names
+    # --- Optional Future Fields ---
+    # evaluation_report: Optional[str]
+    # suggestions: Optional[List[Dict]]
