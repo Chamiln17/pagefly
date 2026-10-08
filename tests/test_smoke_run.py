@@ -7,7 +7,10 @@ from langchain_core.messages import AIMessage
 from fakes import fake_llm, make_fake_search
 from scripts.smoke_run import run_smoke
 
-HTML = "<!DOCTYPE html><html><body><section id='hero'>Hi</section></body></html>"
+HTML = (
+    "<!DOCTYPE html><html><body><section id='hero'>Hi</section>"
+    "<section id='features'></section><section id='cta'></section></body></html>"
+)
 COPY = {"sections": [{"id": "hero", "type": "hero", "copy": {"headline": "Hi"}}]}
 
 
@@ -37,7 +40,7 @@ def test_smoke_run_writes_html_and_reports_route_check_and_tokens(tmp_path):
     assert queries == []
     assert out.read_text(encoding="utf-8") == HTML
     assert "route: skip_research" in summary
-    assert "check: not run (no check step in graph state)" in summary
+    assert "check: passed" in summary
     assert "fake/model: input 600, output 60, total 660" in summary
 
 

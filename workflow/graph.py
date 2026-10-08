@@ -2,6 +2,7 @@
 
 import logging
 
+from bs4 import BeautifulSoup
 from langchain_core.language_models import BaseChatModel
 from langchain_core.tools import BaseTool
 from langgraph.graph import END, StateGraph
@@ -22,6 +23,27 @@ def should_run_marketing_research(state: PageState) -> str:
         return "skip_research"
     logger.info("No Marketing Angle provided: running research")
     return "run_research"
+
+
+def check_page(html: str, layout: dict) -> list[str]:
+    """Deterministic page check: the HTML parses, every layout section has an
+    element whose `id` is the section's layout id, and every `<img>` has alt text."""
+    # ponytail: html.parser recovers from almost anything, so "does not parse"
+    # means no <html> element came out; a strict parser is the upgrade if needed.
+    soup = BeautifulSoup(html, "html.parser")
+    if soup.find("html") is None:
+        return ["HTML does not parse: no <html> element."]
+    problems = [
+        f"Layout section '{s['id']}' has no element with id=\"{s['id']}\"."
+        for s in layout.get("sections", [])
+        if soup.find(id=s["id"]) is None
+    ]
+    problems += [
+        f'<img src="{img.get("src", "")}"> has no alt text.'
+        for img in soup.find_all("img")
+        if not str(img.get("alt") or "").strip()
+    ]
+    return problems
 
 
 def create_graph(llm: BaseChatModel, search_tool: BaseTool):
@@ -136,11 +158,32 @@ def create_graph(llm: BaseChatModel, search_tool: BaseTool):
             state["generated_html"] = f"<!-- Node execution failed: {e} -->"
         return state
 
+    def check_node(state: PageState):
+        logger.info("Running page check")
+        if state.get("error_message"):
+            logger.info("Skipping page check due to previous error")
+            return state
+        problems = check_page(
+            state.get("generated_html") or "", state["fixed_layout_input"]
+        )
+        state["check_problems"] = problems
+        logger.info("Page check found %d problems", len(problems))
+        return state
+
+    def finish_node(state: PageState):
+        """Problems still left after the last check fail the run."""
+        problems = state.get("check_problems")
+        if problems and not state.get("error_message"):
+            state["error_message"] = "Page check failed: " + " ".join(problems)
+        return state
+
     graph = StateGraph(PageState)
     graph.add_node("image_analyzer", image_analysis_node)
     graph.add_node("marketing_researcher", marketing_research_node)
     graph.add_node("copywriter", copywriting_node)
     graph.add_node("html_generator", html_generation_node)
+    graph.add_node("checker", check_node)
+    graph.add_node("finish", finish_node)
 
     graph.set_entry_point("image_analyzer")
     graph.add_conditional_edges(
@@ -150,6 +193,9 @@ def create_graph(llm: BaseChatModel, search_tool: BaseTool):
     )
     graph.add_edge("marketing_researcher", "copywriter")
     graph.add_edge("copywriter", "html_generator")
-    graph.add_edge("html_generator", END)
+    graph.add_edge("html_generator", "checker")
+    # The repair loop (#9) routes on check_problems between these two nodes.
+    graph.add_edge("checker", "finish")
+    graph.add_edge("finish", END)
 
     return graph.compile()

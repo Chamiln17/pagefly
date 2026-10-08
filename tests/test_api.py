@@ -5,7 +5,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import api.main
-from api.generator import get_graph
+from api.generator import SECTIONS, get_graph
 from api.storage import page_store
 from fakes import fake_llm, make_fake_search
 from workflow.graph import create_graph
@@ -119,6 +119,18 @@ def test_graph_error_returns_502_and_stores_nothing(client):
     assert page_store == {}
 
 
+def test_failing_page_check_returns_502_and_stores_nothing(client):
+    use_graph(IMAGE_REPLY, json.dumps(COPY), HTML)
+
+    response = client.post(
+        "/generate", json=request_body(is_hero=True, is_pricing=True)
+    )
+
+    assert response.status_code == 502
+    assert "pricing" in response.json()["detail"]
+    assert page_store == {}
+
+
 def test_scrape_shopify_generates_through_the_graph(client, monkeypatch):
     async def fake_scrape(url):
         return {
@@ -129,7 +141,10 @@ def test_scrape_shopify_generates_through_the_graph(client, monkeypatch):
         }
 
     monkeypatch.setattr("api.routes.scrape_shopify_data", fake_scrape)
-    llm = use_graph(IMAGE_REPLY, json.dumps(COPY), HTML)
+    full_page = "<!DOCTYPE html><html><body>%s</body></html>" % "".join(
+        f"<section id='{s['id']}'></section>" for s in SECTIONS.values()
+    )
+    llm = use_graph(IMAGE_REPLY, json.dumps(COPY), full_page)
 
     response = client.post(
         "/scrape-shopify",
@@ -137,7 +152,7 @@ def test_scrape_shopify_generates_through_the_graph(client, monkeypatch):
     )
 
     assert response.status_code == 200
-    assert client.get(response.json()["preview_url"]).text == HTML
+    assert client.get(response.json()["preview_url"]).text == full_page
     assert "Stay warm" in copywriter_prompt(llm)
 
 

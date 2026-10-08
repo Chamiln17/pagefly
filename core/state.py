@@ -36,6 +36,9 @@ class PageState(TypedDict):
     # HTML Generation Agent Output
     generated_html: Optional[str]  # The final HTML string (Output of coder node)
 
+    # Check step output: one message per problem; [] means the page passed
+    check_problems: Optional[List[str]]
+
     # --- Workflow Control & Errors ---
     error_message: Optional[str]
 

@@ -28,7 +28,6 @@ LAYOUT = {
     ]
 }
 DEFAULT_OUT = Path("out/smoke_page.html")
-# ponytail: field name guessed; the check step (#8) defines the real one.
 CHECK_KEY = "check_problems"
 
 

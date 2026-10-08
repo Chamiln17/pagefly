@@ -124,3 +124,76 @@ def test_image_descriptions_reach_the_copywriter():
         str(p[0].content) for p in llm.prompts if "copywriter" in str(p[0].content)
     )
     assert "A black smart mug on a desk." in copywriter_prompt
+
+
+TWO_SECTION_LAYOUT = {
+    "sections": [
+        {"id": "hero", "type": "hero", "required_copy": ["headline"]},
+        {"id": "pricing", "type": "pricing", "required_copy": ["price_text"]},
+    ]
+}
+
+
+def run_with_html(html):
+    search, _ = make_fake_search()
+    llm = fake_llm(IMAGE_REPLY, json.dumps(COPY), html)
+    state = initial_state("Never drink cold coffee") | {
+        "fixed_layout_input": TWO_SECTION_LAYOUT
+    }
+    return create_graph(llm, search).invoke(state)
+
+
+def test_check_passes_a_clean_page():
+    html = (
+        "<!DOCTYPE html><html><body>"
+        "<section id='hero'><img src='mug.jpg' alt='Black smart mug'></section>"
+        "<div id='pricing'>4500 DZD</div></body></html>"
+    )
+
+    state = run_with_html(html)
+
+    assert state["check_problems"] == []
+    assert not state.get("error_message")
+    assert state["generated_html"] == html
+
+
+def test_check_reports_a_missing_layout_section():
+    state = run_with_html(
+        "<!DOCTYPE html><html><body><section id='hero'>Hi</section></body></html>"
+    )
+
+    assert state["check_problems"] == [
+        "Layout section 'pricing' has no element with id=\"pricing\"."
+    ]
+    assert "pricing" in state["error_message"]
+
+
+def test_check_reports_images_without_alt_text():
+    state = run_with_html(
+        "<!DOCTYPE html><html><body><section id='hero'>"
+        "<img src='a.jpg'><img src='b.jpg' alt='  '></section>"
+        "<section id='pricing'></section></body></html>"
+    )
+
+    assert state["check_problems"] == [
+        '<img src="a.jpg"> has no alt text.',
+        '<img src="b.jpg"> has no alt text.',
+    ]
+    assert state["error_message"]
+
+
+def test_check_reports_html_that_does_not_parse():
+    state = run_with_html("Sorry, I cannot build this page.")
+
+    assert state["check_problems"] == ["HTML does not parse: no <html> element."]
+    assert state["error_message"]
+
+
+def test_check_is_skipped_after_an_earlier_error():
+    search, _ = make_fake_search()
+    llm = fake_llm(IMAGE_REPLY, "Sorry, I cannot write copy today.")
+
+    state = create_graph(llm, search).invoke(initial_state("Never drink cold coffee"))
+
+    assert "check_problems" not in state
+    assert state["error_message"] == "Error reported in generated_copy."
