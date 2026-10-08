@@ -15,10 +15,15 @@ HTML = (
 COPY = {"sections": [{"id": "hero", "type": "hero", "copy": {"headline": "Hi"}}]}
 
 
-def reply(content, tokens_in, tokens_out):
+def reply(content, tokens_in, tokens_out, cost=None):
+    # ChatOpenAI copies the provider's raw `usage` (OpenRouter adds `cost`) into
+    # response_metadata["token_usage"]; usage_metadata keeps token counts only.
+    token_usage = {"prompt_tokens": tokens_in, "completion_tokens": tokens_out}
+    if cost is not None:
+        token_usage["cost"] = cost
     return AIMessage(
         content=content,
-        response_metadata={"model_name": "fake/model"},
+        response_metadata={"model_name": "fake/model", "token_usage": token_usage},
         usage_metadata={
             "input_tokens": tokens_in,
             "output_tokens": tokens_out,
@@ -72,3 +77,41 @@ def test_smoke_run_reports_a_repair_pass(tmp_path):
 
     assert "check: passed" in summary
     assert "repair passes: 1" in summary
+
+
+def test_smoke_run_sums_provider_reported_cost(tmp_path):
+    search, _ = make_fake_search()
+    llm = fake_llm(
+        reply('{"visual_summary": "A mug."}', 100, 10, cost=0.001),
+        reply(json.dumps(COPY), 200, 20, cost=0.002),
+        reply(HTML, 300, 30, cost=0.0035),
+    )
+
+    summary = run_smoke(llm, search, angle="Always hot", out_path=tmp_path / "p.html")
+
+    assert "cost: 0.006500" in summary
+
+
+def test_smoke_run_says_cost_not_reported_when_provider_omits_it(tmp_path):
+    search, _ = make_fake_search()
+    llm = fake_llm(
+        reply('{"visual_summary": "A mug."}', 100, 10),
+        reply(json.dumps(COPY), 200, 20),
+        reply(HTML, 300, 30),
+    )
+
+    summary = run_smoke(llm, search, angle="Always hot", out_path=tmp_path / "p.html")
+
+    assert "cost: not reported" in summary
+
+
+def test_smoke_run_passes_language_to_the_copywriter(tmp_path):
+    search, _ = make_fake_search()
+    llm = fake_llm('{"visual_summary": "A mug."}', json.dumps(COPY), HTML)
+
+    run_smoke(
+        llm, search, angle="Always hot", out_path=tmp_path / "p.html", language="fr"
+    )
+
+    copywriter_prompt = llm.prompts[1][0].content
+    assert "Write in the target language: **fr**" in copywriter_prompt

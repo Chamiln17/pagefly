@@ -98,13 +98,13 @@ Endpoints:
 
 ## Smoke run
 
-`scripts/smoke_run.py` runs the real graph once on a sample product, writes the page to `out/smoke_page.html` and prints the route, check result, repair passes and token usage. It makes paid API calls and reads `.env` itself.
+`scripts/smoke_run.py` runs the real graph once on a sample product, writes the page to `out/smoke_page.html` and prints the route, check result, repair passes, token usage and the provider-reported cost summed over all model calls (`cost: not reported` when the provider sends none). It makes paid API calls and reads `.env` itself.
 
 ```shell
 uv run python scripts/smoke_run.py --help
 ```
 
-Pass `--angle "<text>"` to skip research, so no `TAVILY_API_KEY` is needed.
+Pass `--angle "<text>"` to skip research, so no `TAVILY_API_KEY` is needed. Pass `--language <code>` (default `en`) to set the copy language.
 
 A recorded run on 2026-10-08 with `deepseek/deepseek-v4.1-flash` through OpenRouter took the research route, passed the check with 0 repair passes and used 31,159 tokens (about $0.014 at list price). The page showed the product image with alt text taken from the image analysis.
 

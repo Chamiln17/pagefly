@@ -1,15 +1,17 @@
 """Runs the real agent graph once against real providers. This makes paid API calls.
 
-Usage: uv run python scripts/smoke_run.py [--model MODEL] [--angle TEXT] [--image-url URL] [--out PATH]
+Usage: uv run python scripts/smoke_run.py [--model MODEL] [--angle TEXT] [--image-url URL] [--out PATH] [--language CODE]
 """
 
 import argparse
 import logging
 from pathlib import Path
+from typing import Any
 
 from dotenv import load_dotenv
-from langchain_core.callbacks import get_usage_metadata_callback
+from langchain_core.callbacks import BaseCallbackHandler, get_usage_metadata_callback
 from langchain_core.language_models import BaseChatModel
+from langchain_core.outputs import ChatGeneration, LLMResult
 from langchain_core.tools import BaseTool, tool
 
 from core.llm import make_llm, make_search_tool
@@ -37,6 +39,7 @@ def run_smoke(
     angle: str | None,
     out_path: Path,
     image_url: str = IMAGE_URL,
+    language: str = "en",
 ) -> str:
     """Runs the graph once, writes the HTML to out_path and returns a summary."""
     state = {
@@ -44,10 +47,13 @@ def run_smoke(
         "product_image_urls": [image_url],
         "marketing_angle": angle,
         "fixed_layout_input": LAYOUT,
-        "language": "en",
+        "language": language,
     }
+    costs = CostCallback()
     with get_usage_metadata_callback() as usage:
-        final = create_graph(llm, search_tool).invoke(state)
+        final = create_graph(llm, search_tool).invoke(
+            state, config={"callbacks": [costs]}
+        )
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(final.get("generated_html") or "", encoding="utf-8")
@@ -70,8 +76,30 @@ def run_smoke(
             f"html: {out_path}",
             "tokens:" if tokens else "tokens: none reported",
             *tokens,
+            "cost: not reported"
+            if not costs.costs
+            else f"cost: {sum(costs.costs):.6f}",
         ]
     )
+
+
+class CostCallback(BaseCallbackHandler):
+    """Collects the provider-reported `usage.cost` of every model call.
+
+    ChatOpenAI keeps the provider's raw `usage` dict in
+    `response_metadata["token_usage"]`; `usage_metadata` drops extra fields such as cost.
+    """
+
+    def __init__(self) -> None:
+        self.costs: list[float] = []
+
+    def on_llm_end(self, response: LLMResult, **kwargs: Any) -> None:
+        for generations in response.generations:
+            for gen in generations:
+                if isinstance(gen, ChatGeneration):
+                    usage = gen.message.response_metadata.get("token_usage") or {}
+                    if usage.get("cost") is not None:
+                        self.costs.append(usage["cost"])
 
 
 @tool
@@ -88,6 +116,7 @@ def main() -> None:
     )
     parser.add_argument("--image-url", default=IMAGE_URL)
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
+    parser.add_argument("--language", default="en", help="copy language, e.g. ar")
     args = parser.parse_args()
 
     load_dotenv()
@@ -98,6 +127,7 @@ def main() -> None:
         angle=args.angle,
         out_path=args.out,
         image_url=args.image_url,
+        language=args.language,
     )
     print(summary)
 
