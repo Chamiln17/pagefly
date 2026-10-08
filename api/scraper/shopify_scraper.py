@@ -84,7 +84,11 @@ def _from_html(html: bytes) -> Dict:
     logger.debug("price_tag=%s compare_tag=%s", price_tag, compare_tag)
     price_raw = None
     if price_tag:
-        price_raw = price_tag.get_text(strip=True) or price_tag.get("content")
+        content = price_tag.get("content")
+        # `content` is single-valued, so bs4 always returns a str here
+        price_raw = price_tag.get_text(strip=True) or (
+            content if isinstance(content, str) else None
+        )
     # compare_raw = compare_tag.text.strip() if compare_tag else None
     logger.debug("price_raw=%s", price_raw)
 
@@ -121,7 +125,8 @@ def _from_html(html: bytes) -> Dict:
             or tag.get("content")
         )
         logger.debug("candidate image src=%s", src)
-        if not src:
+        # src/srcset/content are single-valued, so bs4 always returns a str here
+        if not src or not isinstance(src, str):
             continue
 
         # Convert protocol-relative to https

@@ -2,7 +2,7 @@
 
 import json
 import logging
-from typing import Dict, List
+from typing import Any, Dict, List
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -45,7 +45,7 @@ def build_coder_messages(
     image_lines = "\n".join(
         f"- src: {img['src']}\n  alt: {img['alt']}" for img in images or []
     )
-    user_content_parts = [
+    user_content_parts: list[str | dict[Any, Any]] = [
         {
             "type": "text",
             "text": "**Page Structure Definition:**\n```json\n"
