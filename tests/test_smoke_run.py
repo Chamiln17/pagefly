@@ -1,6 +1,7 @@
 """The smoke script's run path, with fakes injected in place of real providers."""
 
 import json
+from pathlib import Path
 
 from langchain_core.messages import AIMessage
 
@@ -9,8 +10,10 @@ from scripts.smoke_run import (
     IMAGE_URL,
     LAYOUT,
     REPAIR_DEMO_HTML,
+    find_browser,
     run_repair_demo,
     run_smoke,
+    take_screenshot,
 )
 from workflow.graph import check_page
 
@@ -146,3 +149,66 @@ def test_repair_demo_makes_one_model_call_and_reports_before_after_and_cost():
     assert after.startswith(" passed")
     assert "fake/model: input 400, output 40, total 440" in summary
     assert "cost: 0.002000" in summary
+
+
+class FakeBrowser:
+    """Writes the PNG like a headless browser, then keeps running the way Edge
+    does on pages whose network requests hang."""
+
+    def __init__(self, cmd, **kwargs):
+        self.cmd = cmd
+        self.terminated = False
+        png = next(a for a in cmd if a.startswith("--screenshot="))
+        Path(png.removeprefix("--screenshot=")).write_bytes(b"\x89PNG fake")
+
+    def poll(self):
+        return 0 if self.terminated else None
+
+    def terminate(self):
+        self.terminated = True
+
+
+def test_screenshot_closes_the_browser_once_the_png_is_written(tmp_path):
+    page = tmp_path / "page.html"
+    page.write_text(HTML, encoding="utf-8")
+    (tmp_path / "page.png").write_bytes(b"stale from an earlier run")
+    launched = []
+
+    def launch(cmd, **kwargs):
+        launched.append(FakeBrowser(cmd, **kwargs))
+        return launched[-1]
+
+    line = take_screenshot(page, "fake-browser", launch=launch, settle=0)
+
+    [browser] = launched
+    assert browser.cmd[0] == "fake-browser"
+    assert "--headless" in browser.cmd
+    assert f"--screenshot={page.with_suffix('.png').resolve()}" in browser.cmd
+    assert browser.cmd[-1] == page.resolve().as_uri()
+    assert browser.terminated
+    assert (tmp_path / "page.png").read_bytes() == b"\x89PNG fake"
+    assert line == f"screenshot: {page.with_suffix('.png')}"
+
+
+def test_screenshot_is_skipped_when_no_browser_is_found(tmp_path):
+    page = tmp_path / "page.html"
+    page.write_text(HTML, encoding="utf-8")
+
+    def never_launch(cmd, **kw):
+        raise AssertionError("no browser should run")
+
+    line = take_screenshot(page, None, launch=never_launch)
+
+    assert line == "screenshot: skipped (no browser found; set BROWSER_PATH)"
+
+
+def test_find_browser_prefers_browser_path_then_known_installs(tmp_path):
+    installed = tmp_path / "msedge.exe"
+    installed.write_text("")
+
+    assert (
+        find_browser({"BROWSER_PATH": "/custom/chrome"}, [installed])
+        == "/custom/chrome"
+    )
+    assert find_browser({}, [tmp_path / "missing.exe", installed]) == str(installed)
+    assert find_browser({}, [tmp_path / "missing.exe"]) is None
