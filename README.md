@@ -14,7 +14,7 @@ The `hackathon-2025-04-19` tag marks the 24-hour version. The repair agent, the 
 
 - **Chamel Nadir Bouacha**: designed the LangGraph workflow and built the agents (image analysis, Marketing Angle research with Tavily, copywriting, HTML generation).
 - **Feninekh Chaima**: built the FastAPI endpoints and the Shopify scraper.
-- **TODO: name of the fourth teammate**: built the frontend, which is not in this repository.
+- **Yasser Djamel Eddine Khelil**: built the frontend, which is not in this repository.
 
 ## How it works
 
