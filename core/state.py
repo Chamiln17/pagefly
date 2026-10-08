@@ -11,6 +11,8 @@ class PageState(TypedDict):
         List[str]
     ]  # List of image URLs for analysis (Input for image node)
     marketing_angle_input: Optional[str]  # Provided by user (optional)
+    product_price: Optional[float]
+    currency: Optional[str]  # e.g. 'DZD'
     fixed_layout_input: (
         Dict  # User-provided layout structure (e.g., JSON describing sections)
     )

@@ -34,7 +34,10 @@ You are a world‑class direct‑response copywriter who specialises in e‑comm
     ```
     (Use this for details about product appearance, style, and visual features.)
 
-3.  **Required Landing Page Structure & Copy Elements:**
+3.  **Price:** {price}
+    (Use this exact price and currency wherever the copy mentions the price.)
+
+4.  **Required Landing Page Structure & Copy Elements:**
     ```json
     {fixed_layout_input_str}
     ```
@@ -120,11 +123,19 @@ copywriting_prompt = PromptTemplate(
         "marketing_context",  # Combined user input or research
         "product_image_analysis_str",
         "fixed_layout_input_str",
+        "price",
     ],
     # Although not strictly needed for JsonOutputParser, explicitly mentioning format helps
     # Note: JsonOutputParser doesn't use format_instructions directly like Pydantic parsers might.
     # Including it in the main template text is the primary way to guide the LLM here.
 )
+
+
+def format_price(inputs: Dict) -> str:
+    """'4500.0 DZD', or 'not provided' when the state has no price."""
+    if inputs.get("product_price") is None:
+        return "not provided"
+    return f"{inputs['product_price']} {inputs.get('currency') or ''}".strip()
 
 
 def invoke_copywriting_logic(llm: BaseChatModel, inputs: Dict) -> Dict:
@@ -143,7 +154,9 @@ def invoke_copywriting_logic(llm: BaseChatModel, inputs: Dict) -> Dict:
     if not isinstance(marketing_context, (str, dict)):
         marketing_context = str(marketing_context)  # Fallback to string conversion
     # 2. Prepare other inputs (ensure they are strings for the prompt)
-    image_analysis_str = json.dumps(inputs.get("product_image_analysis", {}), indent=2)
+    image_analysis_str = json.dumps(
+        inputs.get("product_image_descriptions") or [], indent=2
+    )
     fixed_layout_str = json.dumps(inputs.get("fixed_layout_input", {}), indent=2)
     language = inputs.get("language", "en")  # Default to English
 
@@ -160,6 +173,7 @@ def invoke_copywriting_logic(llm: BaseChatModel, inputs: Dict) -> Dict:
             else marketing_context,
             "product_image_analysis_str": image_analysis_str,
             "fixed_layout_input_str": fixed_layout_str,
+            "price": format_price(inputs),
         }
         generated_copy = copywriting_chain.invoke(chain_input)
         # Ensure the output is a dictionary

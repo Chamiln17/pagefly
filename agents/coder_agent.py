@@ -11,6 +11,8 @@ from langchain_core.language_models import BaseChatModel
 from langchain_core.runnables import RunnableLambda
 from langchain_core.messages import HumanMessage, SystemMessage
 
+from agents.copywriting_agent import format_price
+
 logger = logging.getLogger(__name__)
 
 # --- System Prompt ---
@@ -40,7 +42,10 @@ codegen_system_prompt = """You are an expert frontend developer. Your task is to
 
 
 def build_coder_messages(
-    fixed_layout: Dict, generated_copy: Dict, inspiration_image_url: str = None
+    fixed_layout: Dict,
+    generated_copy: Dict,
+    inspiration_image_url: str = None,
+    price: str = "not provided",
 ) -> List:
     """Builds the message list for the coder agent LLM."""
 
@@ -61,6 +66,10 @@ def build_coder_messages(
             "text": "**Generated Copy Content:**\n```json\n"
             + generated_copy_str
             + "\n```",
+        },
+        {
+            "type": "text",
+            "text": f"**Product Price:** {price} (show this exact price and currency on the page)",
         },
         {
             "type": "text",
@@ -150,7 +159,9 @@ def invoke_coder_logic(llm: BaseChatModel, inputs: Dict) -> str:
         return "<!-- Error: Missing 'sections' key in layout or copy input. -->"
 
     # Build the messages for the LLM call
-    messages = build_coder_messages(fixed_layout, generated_copy, inspiration_image_url)
+    messages = build_coder_messages(
+        fixed_layout, generated_copy, inspiration_image_url, format_price(inputs)
+    )
 
     try:
         response = llm.invoke(messages)

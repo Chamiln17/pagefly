@@ -112,3 +112,15 @@ def test_failing_copywriter_makes_html_generation_skip():
     assert not any(
         "expert frontend developer" in str(p[0].content) for p in llm.prompts
     )
+
+
+def test_image_descriptions_reach_the_copywriter():
+    search, _ = make_fake_search()
+    llm = fake_llm(IMAGE_REPLY, json.dumps(COPY), HTML)
+
+    create_graph(llm, search).invoke(initial_state("Never drink cold coffee"))
+
+    copywriter_prompt = next(
+        str(p[0].content) for p in llm.prompts if "copywriter" in str(p[0].content)
+    )
+    assert "A black smart mug on a desk." in copywriter_prompt
