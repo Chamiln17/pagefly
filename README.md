@@ -106,7 +106,7 @@ uv run python scripts/smoke_run.py --help
 
 Pass `--angle "<text>"` to skip research, so no `TAVILY_API_KEY` is needed.
 
-One recorded run on 2026-10-08 with `deepseek/deepseek-v4.1-flash` through OpenRouter took the research route, passed the check with 0 repair passes, used 19,015 tokens (about $0.01 at list price) and took 62 seconds.
+A recorded run on 2026-10-08 with `deepseek/deepseek-v4.1-flash` through OpenRouter took the research route, passed the check with 0 repair passes and used 31,159 tokens (about $0.014 at list price). The page showed the product image with alt text taken from the image analysis.
 
 ## Tests and lint
 
@@ -125,4 +125,4 @@ uv run ruff format --check .
 - The Shopify scraper is best-effort: its selectors fit a few Shopify themes, and it has no tests.
 - The frontend is not in this repository.
 - The check step is structural only (section ids, alt text, product image present, parsing). It does not judge copy or design quality.
-- A generated page may contain no product image: the recorded smoke run produced a page without an `<img>`.
+- "Parses" means the page has an `<html>` element: Python's HTML parser accepts almost any input.
