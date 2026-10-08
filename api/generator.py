@@ -1,6 +1,7 @@
 from .schemas import LandingPageParams
 # Bridge with the AGENTIC AI
 
+
 def generate_landing_page(data: LandingPageParams) -> str:
     return """
     <!DOCTYPE html>

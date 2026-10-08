@@ -3,10 +3,11 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from .schemas import LandingPageParams, ShopifyURLRequest
 from .scraper.shopify_scraper import scrape_shopify_data
 from .generator import generate_landing_page
-from .storage import page_store  
+from .storage import page_store
 import random
 
 router = APIRouter()
+
 
 @router.post("/generate", response_class=HTMLResponse)
 def generate_page(data: LandingPageParams):
@@ -19,10 +20,13 @@ def generate_page(data: LandingPageParams):
     page_store[page_key] = generate_landing_page(data)
 
     # 4. Return the preview link
-    return JSONResponse({
-        "preview_url": f"/preview/{page_key}",
-    })
-    
+    return JSONResponse(
+        {
+            "preview_url": f"/preview/{page_key}",
+        }
+    )
+
+
 @router.get("/preview/{page_key}", response_class=HTMLResponse)
 def preview_page(page_key: str):
     html = page_store.get(page_key)
@@ -35,8 +39,14 @@ def preview_page(page_key: str):
 async def extract_product_data_and_generate(payload: ShopifyURLRequest):
     scraped = await scrape_shopify_data(payload.url)
 
-    if not scraped["product_name"] or not scraped["product_price"] or not scraped["images"]:
-        raise HTTPException(status_code=422, detail="Insufficient product data extracted.")
+    if (
+        not scraped["product_name"]
+        or not scraped["product_price"]
+        or not scraped["images"]
+    ):
+        raise HTTPException(
+            status_code=422, detail="Insufficient product data extracted."
+        )
 
     # Create a LandingPageParams instance
     landing_data = LandingPageParams(
@@ -50,7 +60,7 @@ async def extract_product_data_and_generate(payload: ShopifyURLRequest):
         is_pricing=True,
         is_contact=True,
         is_footer=True,
-        marketing_angle=payload.marketing_angle
+        marketing_angle=payload.marketing_angle,
     )
 
     # Create a unique key for preview
@@ -63,6 +73,8 @@ async def extract_product_data_and_generate(payload: ShopifyURLRequest):
     page_store[page_key] = html
 
     # Return preview info
-    return JSONResponse({
-        "preview_url": f"/preview/{page_key}",
-    })
+    return JSONResponse(
+        {
+            "preview_url": f"/preview/{page_key}",
+        }
+    )

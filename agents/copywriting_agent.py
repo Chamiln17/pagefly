@@ -3,10 +3,11 @@
 import os
 import json
 from dotenv import load_dotenv
-from typing import Dict, Optional, List
+from typing import Dict
 
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import PromptTemplate
+
 # Using JsonOutputParser to get structured output
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.runnables import RunnableLambda
@@ -112,31 +113,38 @@ Generate the JSON object now based on the provided inputs. Ensure every required
 """
 copy_output_parser = JsonOutputParser()
 copywriting_prompt = PromptTemplate(
-template=copywriting_prompt_template,
-input_variables=[
-"language",
-"marketing_context", # Combined user input or research
-"product_image_analysis_str",
-"fixed_layout_input_str"
-],
-# Although not strictly needed for JsonOutputParser, explicitly mentioning format helps
-# Note: JsonOutputParser doesn't use format_instructions directly like Pydantic parsers might.
-# Including it in the main template text is the primary way to guide the LLM here.
+    template=copywriting_prompt_template,
+    input_variables=[
+        "language",
+        "marketing_context",  # Combined user input or research
+        "product_image_analysis_str",
+        "fixed_layout_input_str",
+    ],
+    # Although not strictly needed for JsonOutputParser, explicitly mentioning format helps
+    # Note: JsonOutputParser doesn't use format_instructions directly like Pydantic parsers might.
+    # Including it in the main template text is the primary way to guide the LLM here.
 )
+
+
 def invoke_copywriting_logic(llm: ChatOpenAI, inputs: Dict) -> Dict:
     """Prepares input and invokes the copywriting LLM chain."""
     # 1. Determine Marketing Context
     marketing_context = inputs.get("marketing_angle_input")
     if not marketing_context:
-    # Use research if angle not provided
-        marketing_context = inputs.get("marketing_strategy", {"summary": "No specific marketing angle provided; focus on general benefits."})
+        # Use research if angle not provided
+        marketing_context = inputs.get(
+            "marketing_strategy",
+            {
+                "summary": "No specific marketing angle provided; focus on general benefits."
+            },
+        )
     # Ensure it's a serializable format (string or dict for JSON dump)
     if not isinstance(marketing_context, (str, dict)):
-        marketing_context = str(marketing_context) # Fallback to string conversion
+        marketing_context = str(marketing_context)  # Fallback to string conversion
     # 2. Prepare other inputs (ensure they are strings for the prompt)
     image_analysis_str = json.dumps(inputs.get("product_image_analysis", {}), indent=2)
     fixed_layout_str = json.dumps(inputs.get("fixed_layout_input", {}), indent=2)
-    language = inputs.get("language", "en") # Default to English
+    language = inputs.get("language", "en")  # Default to English
 
     # 3. Create the chain dynamically for this invocation
     copywriting_chain = copywriting_prompt | llm | copy_output_parser
@@ -146,9 +154,11 @@ def invoke_copywriting_logic(llm: ChatOpenAI, inputs: Dict) -> Dict:
         # Prepare final input dictionary for the chain
         chain_input = {
             "language": language,
-            "marketing_context": json.dumps(marketing_context, indent=2) if isinstance(marketing_context, dict) else marketing_context,
+            "marketing_context": json.dumps(marketing_context, indent=2)
+            if isinstance(marketing_context, dict)
+            else marketing_context,
             "product_image_analysis_str": image_analysis_str,
-            "fixed_layout_input_str": fixed_layout_str
+            "fixed_layout_input_str": fixed_layout_str,
         }
         generated_copy = copywriting_chain.invoke(chain_input)
         # Ensure the output is a dictionary
@@ -160,53 +170,89 @@ def invoke_copywriting_logic(llm: ChatOpenAI, inputs: Dict) -> Dict:
                     generated_copy = json.loads(generated_copy)
                 except json.JSONDecodeError:
                     print("Error: Failed to parse copywriting output string as JSON.")
-                    return {"error": "Copywriting output format error", "raw_output": generated_copy}
-            else: # Not a dict or string, return error
-                return {"error": "Copywriting output format error", "raw_output": str(generated_copy)}
+                    return {
+                        "error": "Copywriting output format error",
+                        "raw_output": generated_copy,
+                    }
+            else:  # Not a dict or string, return error
+                return {
+                    "error": "Copywriting output format error",
+                    "raw_output": str(generated_copy),
+                }
         return generated_copy
     except Exception as e:
         print(f"Error during copywriting chain invocation: {e}")
         import traceback
+
         traceback.print_exc()
         return {"error": f"LLM invocation failed: {e}"}
+
+
 def get_copywriting_agent_runnable(llm: ChatOpenAI):
     """Creates the runnable for the copywriting agent."""
+
     # This agent needs multiple inputs from the state dictionary
     def _wrapped_invoke(state_dict: Dict):
         # Pass the relevant parts of the state directly to the logic function
         return invoke_copywriting_logic(llm, state_dict)
+
     return RunnableLambda(_wrapped_invoke)
+
 
 if __name__ == "__main__":
     load_dotenv()
     if not os.environ.get("OPENAI_API_KEY"):
         print("Error: OPENAI_API_KEY not found.")
     else:
-    # Use a capable LLM for copywriting
+        # Use a capable LLM for copywriting
         test_llm = ChatOpenAI(model="gpt-4o", temperature=0.7)
         copywriting_runnable = get_copywriting_agent_runnable(test_llm)
-    # --- Sample Inputs (Mimicking State) ---
+        # --- Sample Inputs (Mimicking State) ---
         sample_state = {
             "marketing_angle_input": "Focus on the 'always perfect temperature' benefit for busy professionals who hate cold coffee.",
             # "marketing_strategy": {"summary": ...}, # Example if research was used instead
             "product_image_analysis": {
                 "description": "A sleek, modern-looking coffee mug, possibly black or metallic.",
-                "visual_features": ["Minimalist design", "LED indicator light", "Charging coaster"],
+                "visual_features": [
+                    "Minimalist design",
+                    "LED indicator light",
+                    "Charging coaster",
+                ],
                 "overall_style": "Modern, premium, techy",
-                "inferred_audience": "Tech enthusiasts, professionals"
+                "inferred_audience": "Tech enthusiasts, professionals",
             },
             "fixed_layout_input": {
                 # Ensure this structure matches what you expect the user/system to provide
                 "sections": [
-                    {"id": "hero", "type": "hero_banner", "required_copy": ["headline", "subheadline", "button_text"]},
-                    {"id": "problem", "type": "text_section", "required_copy": ["headline", "body_text"]},
-                    {"id": "solution", "type": "text_with_image", "required_copy": ["headline", "body_text"]},
+                    {
+                        "id": "hero",
+                        "type": "hero_banner",
+                        "required_copy": ["headline", "subheadline", "button_text"],
+                    },
+                    {
+                        "id": "problem",
+                        "type": "text_section",
+                        "required_copy": ["headline", "body_text"],
+                    },
+                    {
+                        "id": "solution",
+                        "type": "text_with_image",
+                        "required_copy": ["headline", "body_text"],
+                    },
                     # Example for features needing multiple items
-                    {"id": "features", "type": "feature_list_3_items", "required_copy_per_item": ["title", "description"]},
-                    {"id": "cta", "type": "call_to_action_simple", "required_copy": ["headline", "button_text"]}
+                    {
+                        "id": "features",
+                        "type": "feature_list_3_items",
+                        "required_copy_per_item": ["title", "description"],
+                    },
+                    {
+                        "id": "cta",
+                        "type": "call_to_action_simple",
+                        "required_copy": ["headline", "button_text"],
+                    },
                 ]
             },
-            "language": "arabic"  # Example language input
+            "language": "arabic",  # Example language input
         }
         # --- End Sample Inputs ---
 
@@ -223,4 +269,5 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"An error occurred: {e}")
             import traceback
+
             traceback.print_exc()

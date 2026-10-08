@@ -10,9 +10,8 @@ from langchain_core.runnables import RunnableLambda
 
 # Import Tavily search tool and agent components
 from langchain_community.tools.tavily_search import TavilySearchResults
-from langchain import hub # To pull pre-made agent prompts
+from langchain import hub  # To pull pre-made agent prompts
 from langchain.agents import create_openai_functions_agent, AgentExecutor
-from langchain_core.output_parsers import JsonOutputParser
 
 # --- Agent Setup ---
 
@@ -31,10 +30,11 @@ Format your response as a JSON object with the following structure:
 Include only this JSON structure in your response - no explanations or additional text outside the JSON object.
 """
 
+
 def get_marketing_research_runnable(llm: ChatOpenAI):
     """Creates an agent runnable that uses Tavily search for marketing angles."""
     # 1. Initialize Tools
-    tavily_tool = TavilySearchResults(max_results=4) # Increased results slightly
+    tavily_tool = TavilySearchResults(max_results=4)  # Increased results slightly
     tools = [tavily_tool]
 
     # 2. Get the Agent Prompt Template
@@ -75,7 +75,7 @@ def get_marketing_research_runnable(llm: ChatOpenAI):
             f"3. Synthesize the visual insights with the web research findings.\n"
             f"4. Recommend the best marketing angle, target demographic, keywords, and provide a justification.\n\n"
             f"Output Requirements:\n"
-            f"{angle_output_format_with_justification}" # Reference the string var defined above
+            f"{angle_output_format_with_justification}"  # Reference the string var defined above
         )
 
         # Invoke the agent executor
@@ -86,19 +86,33 @@ def get_marketing_research_runnable(llm: ChatOpenAI):
             # Attempt to parse the JSON output from the agent
             try:
                 # Sometimes agent output might have extra text, try finding JSON block
-                json_start = agent_output_str.find('{')
-                json_end = agent_output_str.rfind('}') + 1
+                json_start = agent_output_str.find("{")
+                json_end = agent_output_str.rfind("}") + 1
                 if json_start != -1 and json_end != -1:
                     json_str = agent_output_str[json_start:json_end]
                     parsed_output = json.loads(json_str)
                     # We want the content under the 'recommended_angle' key based on prompt
-                    marketing_strategy = parsed_output.get("recommended_angle", {"error": "Agent output missing 'recommended_angle'", "raw_output": agent_output_str})
+                    marketing_strategy = parsed_output.get(
+                        "recommended_angle",
+                        {
+                            "error": "Agent output missing 'recommended_angle'",
+                            "raw_output": agent_output_str,
+                        },
+                    )
                 else:
-                    marketing_strategy = {"error": "Agent output did not contain valid JSON", "raw_output": agent_output_str}
+                    marketing_strategy = {
+                        "error": "Agent output did not contain valid JSON",
+                        "raw_output": agent_output_str,
+                    }
 
             except json.JSONDecodeError:
-                 print(f"Warning: Failed to parse JSON from marketing research response: {agent_output_str}")
-                 marketing_strategy = {"error": "Failed to parse agent JSON output", "raw_output": agent_output_str}
+                print(
+                    f"Warning: Failed to parse JSON from marketing research response: {agent_output_str}"
+                )
+                marketing_strategy = {
+                    "error": "Failed to parse agent JSON output",
+                    "raw_output": agent_output_str,
+                }
 
         except Exception as e:
             print(f"Error during marketing research agent execution: {e}")
@@ -117,17 +131,31 @@ if __name__ == "__main__":
     if not os.environ.get("OPENAI_API_KEY") or not os.environ.get("TAVILY_API_KEY"):
         print("Error: OPENAI_API_KEY and TAVILY_API_KEY must be set.")
     else:
-        test_llm = ChatOpenAI(model="gpt-4o", temperature=0.5) # Use a good model for agent work
+        test_llm = ChatOpenAI(
+            model="gpt-4o", temperature=0.5
+        )  # Use a good model for agent work
         research_runnable = get_marketing_research_runnable(test_llm)
 
         # Simulate input state with descriptions from the previous agent
         test_state_input = {
             "product_name": "Smart Coffee Mug",
             "product_image_descriptions": [
-                {"image_url": "url1", "product": "Smart Coffee Mug", "description": "A sleek black mug on a coaster, glowing softly."},
-                {"image_url": "url2", "product": "Smart Coffee Mug", "description": "Close up of the mug showing an LED temperature display."},
-                {"image_url": "url3", "product": "Smart Coffee Mug", "description": "Person holding the mug at an office desk, looking pleased."}
-            ]
+                {
+                    "image_url": "url1",
+                    "product": "Smart Coffee Mug",
+                    "description": "A sleek black mug on a coaster, glowing softly.",
+                },
+                {
+                    "image_url": "url2",
+                    "product": "Smart Coffee Mug",
+                    "description": "Close up of the mug showing an LED temperature display.",
+                },
+                {
+                    "image_url": "url3",
+                    "product": "Smart Coffee Mug",
+                    "description": "Person holding the mug at an office desk, looking pleased.",
+                },
+            ],
         }
 
         print("--- Testing Marketing Research Runnable ---")
@@ -140,4 +168,5 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"An error occurred during test: {e}")
             import traceback
+
             traceback.print_exc()
