@@ -3,10 +3,10 @@ import functools
 import ipaddress
 import logging
 from collections.abc import AsyncIterator, Awaitable, Callable
-from typing import Any, Dict, TypedDict
+from typing import Any, TypedDict
 
-from bs4 import BeautifulSoup
 import httpx
+from bs4 import BeautifulSoup
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +80,7 @@ async def _get_json_product(
     get: Callable[[httpx.URL], Awaitable[httpx.Response]],
     json_url: httpx.URL,
     variant_id: str | None,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Map Shopify's `<product url>.json`; empty dict when unusable. The price is
     the variant `variant_id` names, else the first variant's."""
     try:
@@ -141,7 +141,7 @@ def _page_currency(html: bytes) -> str | None:
     return content if isinstance(content, str) and content else None
 
 
-def _from_html(html: bytes) -> Dict[str, Any]:
+def _from_html(html: bytes) -> dict[str, Any]:
     """Reads name, price, currency and product images from the product page with
     CSS selectors tuned to a few Shopify themes; missing fields come back empty."""
     soup = BeautifulSoup(html, "html.parser")

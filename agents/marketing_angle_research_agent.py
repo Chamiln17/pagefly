@@ -1,7 +1,6 @@
 # agents/marketing_angle_research_agent.py: researches a Marketing Angle with web search
 
 import json
-from typing import Dict
 
 from langchain.agents import create_agent
 from langchain_core.language_models import BaseChatModel
@@ -33,7 +32,7 @@ def get_marketing_research_runnable(llm: BaseChatModel, search_tool: BaseTool):
     Marketing Angle; raises when the agent's reply has no usable JSON."""
     agent = create_agent(llm, [search_tool], system_prompt=research_system_prompt)
 
-    def research_marketing_angle(state: Dict) -> Dict:
+    def research_marketing_angle(state: dict) -> dict:
         product_name = state.get("product_name") or "the product"
         visual_insights_str = "\n".join(
             f"- Image ({d.get('image_url_analyzed', 'N/A')}): "

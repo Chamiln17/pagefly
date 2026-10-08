@@ -10,9 +10,9 @@ from pydantic import ValidationError
 from .generator import get_graph, initial_state
 from .schemas import LandingPageParams, ShopifyURLRequest
 from .scraper.shopify_scraper import (
+    Resolver,
     ScrapedProduct,
     ScrapeError,
-    Resolver,
     host_resolver,
     http_client,
     scrape_shopify_data,

@@ -6,6 +6,7 @@ from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
 from langchain_core.messages import BaseMessage
 from langchain_core.outputs import ChatResult
 from langchain_core.tools import tool
+from pydantic import Field
 
 
 class FakeChatModel(GenericFakeChatModel):
@@ -15,7 +16,7 @@ class FakeChatModel(GenericFakeChatModel):
     agents run against it. Scripted `AIMessage`s may carry `tool_calls`.
     """
 
-    prompts: list[list[BaseMessage]] = []
+    prompts: list[list[BaseMessage]] = Field(default_factory=list)
 
     def bind_tools(self, tools: Any, **kwargs: Any) -> "FakeChatModel":  # type: ignore[override]
         return self

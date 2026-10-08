@@ -1,7 +1,7 @@
 # agents/image_analysis_agent.py: describes each product image
 
 import logging
-from typing import Any, Dict
+from typing import Any
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -68,7 +68,7 @@ def get_image_analysis_runnable(llm: BaseChatModel):
     """Runnable taking 'product_image_urls' and 'product_name' and returning
     {'product_image_descriptions': [one dict per image]}."""
 
-    def analyze_images(state: Dict) -> Dict:
+    def analyze_images(state: dict) -> dict:
         image_urls = state["product_image_urls"]
         product_name = state.get("product_name") or "Unknown Product"
         logger.info("Analyzing %d image(s) for '%s'", len(image_urls), product_name)
