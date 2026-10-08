@@ -12,6 +12,8 @@ from .schemas import LandingPageParams, ShopifyURLRequest
 from .scraper.shopify_scraper import (
     ScrapedProduct,
     ScrapeError,
+    Resolver,
+    host_resolver,
     http_client,
     scrape_shopify_data,
 )
@@ -53,9 +55,12 @@ async def extract_product_data_and_generate(
     payload: ShopifyURLRequest,
     graph=Depends(get_graph),
     client: httpx.AsyncClient = Depends(http_client),
+    resolve: Resolver = Depends(host_resolver),
 ):
     try:
-        scraped: ScrapedProduct = await scrape_shopify_data(str(payload.url), client)
+        scraped: ScrapedProduct = await scrape_shopify_data(
+            str(payload.url), client, resolve
+        )
     except ScrapeError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 

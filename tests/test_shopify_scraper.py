@@ -14,6 +14,10 @@ PRODUCT_HTML = (FIXTURES / "shopify_product.html").read_bytes()
 URL = "https://shop.example.com/products/smart-mug?variant=808950810"
 
 
+async def resolve_public(host):
+    return ["93.184.215.14"]
+
+
 def scrape(routes, url=URL):
     """Run the scraper; `routes` maps a request path to (status, body)."""
 
@@ -23,7 +27,7 @@ def scrape(routes, url=URL):
 
     async def run():
         async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
-            return await scrape_shopify_data(url, client=client)
+            return await scrape_shopify_data(url, client, resolve_public)
 
     return asyncio.run(run())
 

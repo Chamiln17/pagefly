@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 
 import api.main
 from api.generator import SECTIONS, get_graph
-from api.scraper.shopify_scraper import http_client
+from api.scraper.shopify_scraper import host_resolver, http_client
 from api.storage import page_store
 from fakes import fake_llm, make_fake_search
 from workflow.graph import create_graph
@@ -17,6 +17,7 @@ FIXTURES = Path(__file__).parent / "fixtures"
 PRODUCT_JSON = (FIXTURES / "shopify_product.json").read_bytes()
 PRODUCT_HTML = (FIXTURES / "shopify_product.html").read_bytes()
 SHOP_URL = "https://shop.example.com/products/smart-mug?variant=808950811"
+PUBLIC_IP = "93.184.215.14"
 SHOP_IMAGE = "https://cdn.shopify.com/s/files/1/0001/products/mug-1.jpg"
 IMAGE_REPLY = '{"visual_summary": "A black smart mug on a desk."}'
 COPY = {
@@ -142,10 +143,15 @@ def test_failing_page_check_returns_502_and_stores_nothing(client):
 
 
 def serve_shop(routes):
-    """Point the real scraper at a fake shop; `routes` maps a path to (status, body)."""
+    """Point the real scraper at a fake shop; `routes` maps a path to (status, body),
+    where a 3xx body is the redirect target. Returns the URLs the shop was asked for."""
+    requested = []
 
     def handler(request):
+        requested.append(str(request.url))
         status, body = routes.get(request.url.path, (404, b"Not Found"))
+        if 300 <= status < 400:
+            return httpx.Response(status, headers={"location": body.decode()})
         return httpx.Response(status, content=body)
 
     async def fake_shop_client():
@@ -153,6 +159,67 @@ def serve_shop(routes):
             yield c
 
     api.main.app.dependency_overrides[http_client] = fake_shop_client
+    resolve_hosts({"shop.example.com": [PUBLIC_IP]})
+    return requested
+
+
+def resolve_hosts(hosts):
+    """Resolve host names from `hosts` (name -> addresses) instead of DNS."""
+
+    async def resolve(host):
+        return hosts[host]
+
+    api.main.app.dependency_overrides[host_resolver] = lambda: resolve
+
+
+def assert_refused(response, requested, llm):
+    assert response.status_code == 422
+    assert "not a public address" in response.json()["detail"]
+    assert requested == []
+    assert page_store == {}
+    assert llm.prompts == []
+
+
+@pytest.mark.parametrize(
+    "host", ["127.0.0.1", "10.0.0.5", "169.254.169.254", "[::1]", "[fd00::1]"]
+)
+def test_scrape_shopify_refuses_a_non_public_ip(client, host):
+    requested = serve_shop({"/products/smart-mug": (200, PRODUCT_HTML)})
+    llm = use_graph()
+
+    response = client.post(
+        "/scrape-shopify", json={"url": f"http://{host}/products/smart-mug"}
+    )
+
+    assert_refused(response, requested, llm)
+
+
+def test_scrape_shopify_refuses_a_host_that_resolves_to_a_private_address(client):
+    requested = serve_shop({"/products/smart-mug": (200, PRODUCT_HTML)})
+    resolve_hosts({"intranet.example.com": [PUBLIC_IP, "192.168.1.10"]})
+    llm = use_graph()
+
+    response = client.post(
+        "/scrape-shopify",
+        json={"url": "https://intranet.example.com/products/smart-mug"},
+    )
+
+    assert_refused(response, requested, llm)
+
+
+def test_scrape_shopify_refuses_a_redirect_to_a_private_address(client):
+    internal = "http://127.0.0.1/products/smart-mug"
+    requested = serve_shop(
+        {
+            "/products/smart-mug.json": (302, f"{internal}.json".encode()),
+            "/products/smart-mug": (302, internal.encode()),
+        }
+    )
+    llm = use_graph()
+
+    response = client.post("/scrape-shopify", json={"url": SHOP_URL})
+
+    assert_refused(response, [u for u in requested if "127.0.0.1" in u], llm)
 
 
 def test_scrape_shopify_returns_422_when_scraping_finds_too_little(client):
