@@ -11,6 +11,7 @@ def test_smoke_script_runs_as_documented():
     result = subprocess.run(
         [sys.executable, "-m", "scripts.smoke_run", "--help"],
         cwd=ROOT,
+        check=False,  # the return code is asserted below
         capture_output=True,
         text=True,
         timeout=120,
