@@ -1,28 +1,37 @@
-from fastapi import APIRouter, HTTPException
-from fastapi.responses import HTMLResponse, JSONResponse
+import random
+
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.concurrency import run_in_threadpool
+from fastapi.responses import HTMLResponse
+
+from .generator import get_graph, initial_state
 from .schemas import LandingPageParams, ShopifyURLRequest
 from .scraper.shopify_scraper import scrape_shopify_data
-from .generator import generate_landing_page
-from .storage import page_store  
-import random
+from .storage import page_store
 
 router = APIRouter()
 
-@router.post("/generate", response_class=HTMLResponse)
-def generate_page(data: LandingPageParams):
-    # 2. Create a unique preview key
+
+def generate_and_store(data: LandingPageParams, graph) -> dict:
+    """Run the graph; store the page and return its preview link, or raise 502."""
+    state = graph.invoke(initial_state(data))
+    html = state.get("generated_html")
+    if state.get("error_message") or not html:
+        raise HTTPException(
+            status_code=502,
+            detail=state.get("error_message") or "Graph returned no HTML.",
+        )
     safe_name = data.product_name.lower().replace(" ", "-")
-    random_suffix = random.randint(1000, 9999)
-    page_key = f"{safe_name}_{random_suffix}"
+    page_key = f"{safe_name}_{random.randint(1000, 9999)}"
+    page_store[page_key] = html
+    return {"preview_url": f"/preview/{page_key}"}
 
-    # 3. Store the HTML in memory
-    page_store[page_key] = generate_landing_page(data)
 
-    # 4. Return the preview link
-    return JSONResponse({
-        "preview_url": f"/preview/{page_key}",
-    })
-    
+@router.post("/generate")
+def generate_page(data: LandingPageParams, graph=Depends(get_graph)):
+    return generate_and_store(data, graph)
+
+
 @router.get("/preview/{page_key}", response_class=HTMLResponse)
 def preview_page(page_key: str):
     html = page_store.get(page_key)
@@ -32,13 +41,20 @@ def preview_page(page_key: str):
 
 
 @router.post("/scrape-shopify")
-async def extract_product_data_and_generate(payload: ShopifyURLRequest):
+async def extract_product_data_and_generate(
+    payload: ShopifyURLRequest, graph=Depends(get_graph)
+):
     scraped = await scrape_shopify_data(payload.url)
 
-    if not scraped["product_name"] or not scraped["product_price"] or not scraped["images"]:
-        raise HTTPException(status_code=422, detail="Insufficient product data extracted.")
+    if (
+        not scraped["product_name"]
+        or not scraped["product_price"]
+        or not scraped["images"]
+    ):
+        raise HTTPException(
+            status_code=422, detail="Insufficient product data extracted."
+        )
 
-    # Create a LandingPageParams instance
     landing_data = LandingPageParams(
         product_name=scraped["product_name"],
         product_price=scraped["product_price"],
@@ -50,19 +66,7 @@ async def extract_product_data_and_generate(payload: ShopifyURLRequest):
         is_pricing=True,
         is_contact=True,
         is_footer=True,
-        marketing_angle=payload.marketing_angle
+        marketing_angle=payload.marketing_angle,
     )
-
-    # Create a unique key for preview
-    safe_name = landing_data.product_name.lower().replace(" ", "-")
-    random_suffix = random.randint(1000, 9999)
-    page_key = f"{safe_name}_{random_suffix}"
-
-    # Generate and store HTML
-    html = generate_landing_page(landing_data)
-    page_store[page_key] = html
-
-    # Return preview info
-    return JSONResponse({
-        "preview_url": f"/preview/{page_key}",
-    })
+    # The graph is synchronous and slow; keep it off the event loop.
+    return await run_in_threadpool(generate_and_store, landing_data, graph)

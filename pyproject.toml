@@ -1,5 +1,5 @@
 [project]
-name = "astro-page-agents"
+name = "pagefly"
 version = "0.1.0"
 description = "Agentic AI landing page generator backend with FastAPI"
 readme = "README.md"
@@ -8,22 +8,23 @@ requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.115.2",
     "uvicorn>=0.24.0",
-    "pydantic>=2.5.3",                    # For request models and validation
-    "httpx>=0.27.0",                      # For optional outbound API calls (future-proof)
-    "python-dotenv>=1.0.1",              # To load environment variables
-    "langchain>=0.3.23",                 # Your AI orchestration
-    "langchain-openai>=0.3.14",
-    "langgraph>=0.3.31",
+    "pydantic>=2.5.3",
+    "httpx>=0.27.0",
+    "python-dotenv>=1.0.1",
+    "langchain>=1.4.3",
+    "langchain-core>=1.6.7",
+    "langchain-openai>=1.6.7",
+    "langgraph>=1.2.14",
     "openai>=1.75.0",
-    "serpapi>=0.1.5"
+    "beautifulsoup4>=4.15.0",
+    "langchain-tavily>=0.2.18",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=8.3.5",                     # Testing
-    "ruff>=0.3.4",                       # Linting
-    "black>=24.4.0",                     # Code formatting
-    "mypy>=1.10.0"                       # Type checking
+    "pytest>=8.3.5",
+    "ruff>=0.3.4",
+    "mypy>=1.10.0",
 ]
 
 [tool.setuptools]
@@ -31,8 +32,12 @@ include-package-data = true
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["api", "agents", "core", "workflow", "agentic_ai"]
+include = ["api", "agents", "core", "workflow"]
 
 [build-system]
 requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

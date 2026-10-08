@@ -1,33 +1,31 @@
-# core/state.py (Corrected Version)
+# core/state.py: the graph state shared by all nodes
 
-from typing import TypedDict, List, Optional, Dict
+from typing import Dict, List, Optional, TypedDict
+
 
 class PageState(TypedDict):
-    # --- Inputs (From User/Config) ---
-    product_name: Optional[str]        # Added: Name of the product being analyzed
-    product_description: Optional[str] # Kept: Might be needed for research
-    product_image_urls: Optional[List[str]] # List of image URLs for analysis (Input for image node)
-    marketing_angle_input: Optional[str] # Provided by user (optional)
-    fixed_layout_input: Dict # User-provided layout structure (e.g., JSON describing sections)
-    language: str              # Target language for copy (e.g., 'en')
-    # Removed redundant product_image_url
+    # Inputs
+    product_name: Optional[str]
+    product_description: Optional[str]
+    product_image_urls: Optional[List[str]]
+    marketing_angle: Optional[str]  # given by the user; research runs without it
+    product_price: Optional[float]
+    currency: Optional[str]  # e.g. 'DZD'
+    fixed_layout_input: Dict  # {"sections": [{id, type, required_copy, ...}]}
+    language: str  # target language for the copy, e.g. 'en'
 
-    # --- Agent Outputs ---
-    # Image Analysis Agent Output
-    product_image_descriptions: Optional[List[Dict]] # CORRECTED: List of analysis dicts (Output of image node)
-
-    # Marketing Research Agent Output (if run)
-    marketing_strategy: Optional[Dict] # Researched angles, keywords, trends (Output of research node)
-
-    # Copywriting Agent Output
-    generated_copy: Optional[Dict] # Structured copy (Output of copywriting node)
-
-    # HTML Generation Agent Output
-    generated_html: Optional[str] # The final HTML string (Output of coder node)
-
-    # --- Workflow Control & Errors ---
+    # Outputs
+    product_image_descriptions: Optional[List[Dict]]  # one analysis per image
+    marketing_research: Optional[Dict]  # research that yields the Marketing Angle
+    generated_copy: Optional[Dict]
+    generated_html: Optional[str]
+    check_problems: Optional[List[str]]  # one message per problem; [] = passed
+    repair_passes: Optional[int]  # the repair agent runs at most once
     error_message: Optional[str]
 
-    # --- Optional Future Fields ---
-    # evaluation_report: Optional[str]
-    # suggestions: Optional[List[Dict]]
+
+def format_price(state: Dict) -> str:
+    """'4500.0 DZD', or 'not provided' when the state has no price."""
+    if state.get("product_price") is None:
+        return "not provided"
+    return f"{state['product_price']} {state.get('currency') or ''}".strip()

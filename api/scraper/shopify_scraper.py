@@ -1,29 +1,31 @@
+import logging
 from typing import Dict
 from bs4 import BeautifulSoup
 import httpx
-from apify import Actor
+
+logger = logging.getLogger(__name__)
+
 
 async def scrape_shopify_data(url: str) -> Dict:
-
     async with httpx.AsyncClient() as client:
         response = await client.get(str(url))
 
-    soup = BeautifulSoup(response.content, 'html.parser')
+    soup = BeautifulSoup(response.content, "html.parser")
 
-     # Extract product title
+    # Extract product title
     title_tag = soup.select_one("h1.logo a[aria-label]")
     product_name = title_tag.get("aria-label") if title_tag else None
-    print("titles++++555", product_name)
+    logger.debug("product_name=%s", product_name)
 
     #  Extract price and compare at price (with currency symbols)
     price_tag = soup.select_one(".product__price--regular")
     compare_tag = soup.select_one(".product__price--compare")
-    print("titles++++555", price_tag, compare_tag)
+    logger.debug("price_tag=%s compare_tag=%s", price_tag, compare_tag)
     price_raw = None
     if price_tag:
-         price_raw = price_tag.get_text(strip=True) or price_tag.get("content")
-    #compare_raw = compare_tag.text.strip() if compare_tag else None
-    print("titles++++555999", price_raw)
+        price_raw = price_tag.get_text(strip=True) or price_tag.get("content")
+    # compare_raw = compare_tag.text.strip() if compare_tag else None
+    logger.debug("price_raw=%s", price_raw)
 
     # 🧽Detect currency symbol
     currency_symbol = ""
@@ -32,13 +34,11 @@ async def scrape_shopify_data(url: str) -> Dict:
             currency_symbol = symbol
             break
 
-    currency = {
-        "$": "USD",
-        "€": "EUR",
-        "دج": "DZD",
-        "DA": "DZD"
-    }.get(currency_symbol, "USD")  # default fallback
-    print("titles++++5uu", currency_symbol)
+    currency = {"$": "USD", "€": "EUR", "دج": "DZD", "DA": "DZD"}.get(
+        currency_symbol, "USD"
+    )  # default fallback
+    logger.debug("currency_symbol=%s", currency_symbol)
+
     # 🧹 Clean price strings to float
     def clean_price(p: str | None) -> float | None:
         if not p:
@@ -46,17 +46,20 @@ async def scrape_shopify_data(url: str) -> Dict:
         return float("".join(c for c in p if c.isdigit() or c == "."))
 
     product_price = clean_price(price_raw)
-    
 
     # Limit to 6 valid image URLs
-     # 🖼️ Extract high-quality product images (prefer "products" in URL)
+    # 🖼️ Extract high-quality product images (prefer "products" in URL)
     images = []
     media_tags = soup.select("img, source")
-    #print("titles++++5uu", media_tags)
 
     for tag in media_tags:
-        src = tag.get("src") or tag.get("data-src") or tag.get("srcset") or tag.get("content")
-        print("titles++++5uu", src)
+        src = (
+            tag.get("src")
+            or tag.get("data-src")
+            or tag.get("srcset")
+            or tag.get("content")
+        )
+        logger.debug("candidate image src=%s", src)
         if not src:
             continue
 
@@ -65,18 +68,20 @@ async def scrape_shopify_data(url: str) -> Dict:
             src = "https:" + src
 
         # Skip non-product images
-        if any(skip in src.lower() for skip in ["flags", "icons", "logo", "svg", "avatar"]):
+        if any(
+            skip in src.lower() for skip in ["flags", "icons", "logo", "svg", "avatar"]
+        ):
             continue
 
         # Optional: Prioritize images with "products" or from Shopify CDN
-        if "products" in src or "touchelab.com/cdn" in src or 'mnml.la/cdn/shop' in src:
+        if "products" in src or "touchelab.com/cdn" in src or "mnml.la/cdn/shop" in src:
             images.append(src)
 
         if len(images) >= 6:
             break
     # Remove duplicates
     images = list(dict.fromkeys(images))
-    print("titles++++5uu", images)
+    logger.debug("images=%s", images)
 
     return {
         "product_name": product_name,

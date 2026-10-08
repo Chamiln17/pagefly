@@ -1,22 +1,20 @@
+import os
+
 from fastapi import FastAPI
-from .routes import router
 from fastapi.middleware.cors import CORSMiddleware
-from apify import Actor
-from contextlib import asynccontextmanager
 
+from .routes import router
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # 🔄 Startup
-    await Actor.init()
-    yield
-    # 🔚 Shutdown
-    await Actor.exit()
+DEFAULT_CORS_ORIGINS = "http://localhost:3000,http://localhost:5173"
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # React dev server
+    allow_origins=[
+        o.strip()
+        for o in os.environ.get("CORS_ORIGINS", DEFAULT_CORS_ORIGINS).split(",")
+        if o.strip()
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
