@@ -135,8 +135,9 @@ TWO_SECTION_LAYOUT = {
 
 
 def run_with_html(html):
+    """Runs the graph on a page the repair agent hands back unchanged."""
     search, _ = make_fake_search()
-    llm = fake_llm(IMAGE_REPLY, json.dumps(COPY), html)
+    llm = fake_llm(IMAGE_REPLY, json.dumps(COPY), html, html)
     state = initial_state("Never drink cold coffee") | {
         "fixed_layout_input": TWO_SECTION_LAYOUT
     }
@@ -197,3 +198,61 @@ def test_check_is_skipped_after_an_earlier_error():
 
     assert "check_problems" not in state
     assert state["error_message"] == "Error reported in generated_copy."
+
+
+BROKEN_HTML = "<!DOCTYPE html><html><body><section id='hero'>Hi</section></body></html>"
+FIXED_HTML = (
+    "<!DOCTYPE html><html><body><section id='hero'>Hi</section>"
+    "<section id='pricing'>4500 DZD</section></body></html>"
+)
+
+
+def run_with_replies(*replies):
+    search, _ = make_fake_search()
+    llm = fake_llm(IMAGE_REPLY, json.dumps(COPY), *replies)
+    state = initial_state("Never drink cold coffee") | {
+        "fixed_layout_input": TWO_SECTION_LAYOUT
+    }
+    return create_graph(llm, search).invoke(state), llm
+
+
+def repair_prompts(llm):
+    return [p for p in llm.prompts if "repair" in str(p[0].content).lower()]
+
+
+def test_broken_page_is_fixed_in_one_repair_pass():
+    state, llm = run_with_replies(BROKEN_HTML, "```html\n" + FIXED_HTML + "\n```")
+
+    assert state["generated_html"] == FIXED_HTML
+    assert state["check_problems"] == []
+    assert state["repair_passes"] == 1
+    assert not state.get("error_message")
+    [prompt] = repair_prompts(llm)
+    assert BROKEN_HTML in str(prompt[1].content)
+    assert "Layout section 'pricing' has no element" in str(prompt[1].content)
+
+
+def test_clean_page_never_calls_repair():
+    state, llm = run_with_replies(FIXED_HTML)
+
+    assert repair_prompts(llm) == []
+    assert not state.get("repair_passes")
+    assert not state.get("error_message")
+
+
+def test_page_still_broken_after_repair_ends_in_error_without_a_second_pass():
+    state, llm = run_with_replies(BROKEN_HTML, BROKEN_HTML, FIXED_HTML)
+
+    assert len(repair_prompts(llm)) == 1
+    assert state["repair_passes"] == 1
+    assert state["generated_html"] == BROKEN_HTML
+    assert state["error_message"].startswith("Page check failed:")
+    assert "pricing" in state["error_message"]
+
+
+def test_failing_repair_agent_ends_the_run_with_an_error():
+    # The scripted model has no reply left for the repair call, so it raises.
+    state, llm = run_with_replies(BROKEN_HTML)
+
+    assert state["repair_passes"] == 1
+    assert state["error_message"].startswith("Error in Repair Node")

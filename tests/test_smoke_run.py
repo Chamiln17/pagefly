@@ -41,6 +41,7 @@ def test_smoke_run_writes_html_and_reports_route_check_and_tokens(tmp_path):
     assert out.read_text(encoding="utf-8") == HTML
     assert "route: skip_research" in summary
     assert "check: passed" in summary
+    assert "repair passes: 0" in summary
     assert "fake/model: input 600, output 60, total 660" in summary
 
 
@@ -57,3 +58,14 @@ def test_smoke_run_without_angle_takes_research_route(tmp_path):
 
     assert "route: run_research" in summary
     assert "tokens: none reported" in summary
+
+
+def test_smoke_run_reports_a_repair_pass(tmp_path):
+    search, _ = make_fake_search()
+    broken = "<!DOCTYPE html><html><body><section id='hero'>Hi</section></body></html>"
+    llm = fake_llm('{"visual_summary": "A mug."}', json.dumps(COPY), broken, HTML)
+
+    summary = run_smoke(llm, search, angle="Always hot", out_path=tmp_path / "p.html")
+
+    assert "check: passed" in summary
+    assert "repair passes: 1" in summary

@@ -39,6 +39,9 @@ class PageState(TypedDict):
     # Check step output: one message per problem; [] means the page passed
     check_problems: Optional[List[str]]
 
+    # Repair passes run on this page; the repair agent runs at most once
+    repair_passes: Optional[int]
+
     # --- Workflow Control & Errors ---
     error_message: Optional[str]
 

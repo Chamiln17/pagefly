@@ -120,7 +120,8 @@ def test_graph_error_returns_502_and_stores_nothing(client):
 
 
 def test_failing_page_check_returns_502_and_stores_nothing(client):
-    use_graph(IMAGE_REPLY, json.dumps(COPY), HTML)
+    # The repair agent hands the page back unchanged, so the check fails again.
+    use_graph(IMAGE_REPLY, json.dumps(COPY), HTML, HTML)
 
     response = client.post(
         "/generate", json=request_body(is_hero=True, is_pricing=True)

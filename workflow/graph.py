@@ -11,6 +11,7 @@ from agents.coder_agent import get_codegen_agent_runnable
 from agents.copywriting_agent import get_copywriting_agent_runnable
 from agents.image_analysis_agent import get_image_analysis_runnable
 from agents.marketing_angle_research_agent import get_marketing_research_runnable
+from agents.repair_agent import get_repair_runnable
 from core.state import PageState
 
 logger = logging.getLogger(__name__)
@@ -23,6 +24,20 @@ def should_run_marketing_research(state: PageState) -> str:
         return "skip_research"
     logger.info("No Marketing Angle provided: running research")
     return "run_research"
+
+
+MAX_REPAIR_PASSES = 1
+
+
+def should_repair(state: PageState) -> str:
+    """Repair only a page with check problems, at most MAX_REPAIR_PASSES times."""
+    if (
+        state.get("check_problems")
+        and not state.get("error_message")
+        and (state.get("repair_passes") or 0) < MAX_REPAIR_PASSES
+    ):
+        return "repair"
+    return "finish"
 
 
 def check_page(html: str, layout: dict) -> list[str]:
@@ -52,6 +67,7 @@ def create_graph(llm: BaseChatModel, search_tool: BaseTool):
     marketing_research_runnable = get_marketing_research_runnable(llm, search_tool)
     copywriting_runnable = get_copywriting_agent_runnable(llm)
     html_coder_runnable = get_codegen_agent_runnable(llm)
+    repair_runnable = get_repair_runnable(llm)
 
     def image_analysis_node(state: PageState):
         logger.info("Running image analysis")
@@ -170,6 +186,21 @@ def create_graph(llm: BaseChatModel, search_tool: BaseTool):
         logger.info("Page check found %d problems", len(problems))
         return state
 
+    def repair_node(state: PageState):
+        logger.info("Running repair pass")
+        state["repair_passes"] = (state.get("repair_passes") or 0) + 1
+        try:
+            state["generated_html"] = repair_runnable.invoke(
+                {
+                    "html": state.get("generated_html") or "",
+                    "problems": state.get("check_problems") or [],
+                }
+            )
+        except Exception as e:
+            logger.exception("Repair node failed")
+            state["error_message"] = f"Error in Repair Node: {e}"
+        return state
+
     def finish_node(state: PageState):
         """Problems still left after the last check fail the run."""
         problems = state.get("check_problems")
@@ -183,6 +214,7 @@ def create_graph(llm: BaseChatModel, search_tool: BaseTool):
     graph.add_node("copywriter", copywriting_node)
     graph.add_node("html_generator", html_generation_node)
     graph.add_node("checker", check_node)
+    graph.add_node("repairer", repair_node)
     graph.add_node("finish", finish_node)
 
     graph.set_entry_point("image_analyzer")
@@ -194,8 +226,10 @@ def create_graph(llm: BaseChatModel, search_tool: BaseTool):
     graph.add_edge("marketing_researcher", "copywriter")
     graph.add_edge("copywriter", "html_generator")
     graph.add_edge("html_generator", "checker")
-    # The repair loop (#9) routes on check_problems between these two nodes.
-    graph.add_edge("checker", "finish")
+    graph.add_conditional_edges(
+        "checker", should_repair, {"repair": "repairer", "finish": "finish"}
+    )
+    graph.add_edge("repairer", "checker")
     graph.add_edge("finish", END)
 
     return graph.compile()

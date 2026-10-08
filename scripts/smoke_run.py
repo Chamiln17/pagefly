@@ -67,6 +67,7 @@ def run_smoke(
         [
             f"route: {should_run_marketing_research(final)}",
             f"check: {check}",
+            f"repair passes: {final.get('repair_passes') or 0}",
             f"error: {final.get('error_message') or 'none'}",
             f"html: {out_path}",
             "tokens:" if tokens else "tokens: none reported",
