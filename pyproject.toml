@@ -3,6 +3,13 @@ name = "pagefly"
 version = "0.1.0"
 description = "Agentic AI landing page generator backend with FastAPI"
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [
+    { name = "Chamel Nadir Bouacha" },
+    { name = "Feninekh Chaima" },
+    { name = "Yasser Djamel Eddine Khelil" },
+]
 requires-python = ">=3.11"
 
 dependencies = [
@@ -35,7 +42,7 @@ where = ["."]
 include = ["api", "agents", "core", "workflow"]
 
 [build-system]
-requires = ["setuptools", "wheel"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [tool.pytest.ini_options]
