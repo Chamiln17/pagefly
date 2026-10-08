@@ -30,3 +30,21 @@ def test_make_llm_model_argument_overrides_env(monkeypatch):
     monkeypatch.setenv("LLM_MODEL", "gpt-4o-mini")
 
     assert make_llm("other/model").model_name == "other/model"
+
+
+def test_make_llm_sets_model_settings(monkeypatch):
+    monkeypatch.setenv("LLM_API_KEY", "dummy")
+    monkeypatch.delenv("LLM_MAX_TOKENS", raising=False)
+
+    llm = make_llm()
+
+    assert llm.temperature == 0.3
+    assert llm.request_timeout == 120
+    assert llm.max_tokens == 8192
+
+
+def test_make_llm_reads_max_tokens_from_env(monkeypatch):
+    monkeypatch.setenv("LLM_API_KEY", "dummy")
+    monkeypatch.setenv("LLM_MAX_TOKENS", "2000")
+
+    assert make_llm().max_tokens == 2000
