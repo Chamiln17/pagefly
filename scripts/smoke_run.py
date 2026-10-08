@@ -1,7 +1,7 @@
 """Runs the real agent graph once against real providers. This makes paid API calls.
 
-Usage: uv run python scripts/smoke_run.py [--model MODEL] [--angle TEXT] [--image-url URL] [--out PATH] [--language CODE] [--screenshot]
-       uv run python scripts/smoke_run.py --repair-demo [--model MODEL]
+Usage: uv run python -m scripts.smoke_run [--model MODEL] [--angle TEXT] [--image-url URL] [--out PATH] [--language CODE] [--screenshot]
+       uv run python -m scripts.smoke_run --repair-demo [--model MODEL]
 """
 
 import argparse

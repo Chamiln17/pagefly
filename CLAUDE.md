@@ -14,7 +14,7 @@ uv run ruff check . && uv run ruff format --check .
 uv run mypy .                                  # gates CI
 uv lock --check                                # uv.lock matches pyproject.toml
 uv run --env-file .env uvicorn api.main:app    # API
-uv run python scripts/smoke_run.py --help      # real run makes PAID calls; never run it without authorisation
+uv run python -m scripts.smoke_run --help      # real run makes PAID calls; never run it without authorisation
 ```
 
 CI (`.github/workflows/ci.yml`) runs the lock check, sync, pytest, ruff check, ruff format --check and mypy on every push and pull request; all must pass.
