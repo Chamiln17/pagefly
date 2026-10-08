@@ -5,7 +5,14 @@ import json
 from langchain_core.messages import AIMessage
 
 from fakes import fake_llm, make_fake_search
-from scripts.smoke_run import IMAGE_URL, run_smoke
+from scripts.smoke_run import (
+    IMAGE_URL,
+    LAYOUT,
+    REPAIR_DEMO_HTML,
+    run_repair_demo,
+    run_smoke,
+)
+from workflow.graph import check_page
 
 IMG = f"<img src='{IMAGE_URL}' alt='Coffee mug'>"
 HTML = (
@@ -115,3 +122,27 @@ def test_smoke_run_passes_language_to_the_copywriter(tmp_path):
 
     copywriter_prompt = llm.prompts[1][0].content
     assert "Write in the target language: **fr**" in copywriter_prompt
+
+
+def test_repair_demo_page_has_the_problems_check_page_reports():
+    problems = check_page(REPAIR_DEMO_HTML, LAYOUT, [IMAGE_URL])
+
+    assert problems == [
+        "Layout section 'cta' has no element with id=\"cta\".",
+        f'<img src="{IMAGE_URL}"> has no alt text.',
+    ]
+
+
+def test_repair_demo_makes_one_model_call_and_reports_before_after_and_cost():
+    llm = fake_llm(reply(HTML, 400, 40, cost=0.002))
+
+    summary = run_repair_demo(llm)
+
+    assert len(llm.prompts) == 1
+    assert "has no alt text" in llm.prompts[0][1].content
+    before, after = summary.split("after:")
+    assert "Layout section 'cta' has no element" in before
+    assert "has no alt text" in before
+    assert after.startswith(" passed")
+    assert "fake/model: input 400, output 40, total 440" in summary
+    assert "cost: 0.002000" in summary

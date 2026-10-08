@@ -1,6 +1,7 @@
 """Runs the real agent graph once against real providers. This makes paid API calls.
 
 Usage: uv run python scripts/smoke_run.py [--model MODEL] [--angle TEXT] [--image-url URL] [--out PATH] [--language CODE]
+       uv run python scripts/smoke_run.py --repair-demo [--model MODEL]
 """
 
 import argparse
@@ -14,9 +15,9 @@ from langchain_core.language_models import BaseChatModel
 from langchain_core.outputs import ChatGeneration, LLMResult
 from langchain_core.tools import BaseTool, tool
 
+from agents.repair_agent import get_repair_runnable
 from core.llm import make_llm, make_search_tool
-
-from workflow.graph import create_graph, should_run_marketing_research
+from workflow.graph import check_page, create_graph, should_run_marketing_research
 
 PRODUCT_NAME = "Ceramic Coffee Mug"
 IMAGE_URL = (
@@ -30,6 +31,13 @@ LAYOUT = {
     ]
 }
 DEFAULT_OUT = Path("out/smoke_page.html")
+# Known problems for --repair-demo: no "cta" section and an <img> without alt.
+REPAIR_DEMO_HTML = (
+    "<!DOCTYPE html><html><body>"
+    f"<section id='hero'><h1>Ceramic Coffee Mug</h1><img src='{IMAGE_URL}'></section>"
+    "<section id='features'><ul><li>Keeps coffee hot</li></ul></section>"
+    "</body></html>"
+)
 
 
 def run_smoke(
@@ -63,10 +71,6 @@ def run_smoke(
         check = "skipped (earlier error)"
     else:
         check = f"failed: {problems}" if problems else "passed"
-    tokens = [
-        f"  {model}: input {u['input_tokens']}, output {u['output_tokens']}, total {u['total_tokens']}"
-        for model, u in usage.usage_metadata.items()
-    ]
     return "\n".join(
         [
             f"route: {should_run_marketing_research(final)}",
@@ -74,13 +78,45 @@ def run_smoke(
             f"repair passes: {final.get('repair_passes') or 0}",
             f"error: {final.get('error_message') or 'none'}",
             f"html: {out_path}",
-            "tokens:" if tokens else "tokens: none reported",
-            *tokens,
-            "cost: not reported"
-            if not costs.costs
-            else f"cost: {sum(costs.costs):.6f}",
+            *usage_lines(usage.usage_metadata, costs),
         ]
     )
+
+
+def run_repair_demo(llm: BaseChatModel) -> str:
+    """Sends REPAIR_DEMO_HTML and its check problems to the repair agent (one
+    model call), checks the result and returns a summary."""
+    image_urls = [IMAGE_URL]
+    before = check_page(REPAIR_DEMO_HTML, LAYOUT, image_urls)
+    costs = CostCallback()
+    with get_usage_metadata_callback() as usage:
+        repaired = get_repair_runnable(llm).invoke(
+            {"html": REPAIR_DEMO_HTML, "problems": before},
+            config={"callbacks": [costs]},
+        )
+    after = check_page(repaired, LAYOUT, image_urls)
+    return "\n".join(
+        [
+            "before:",
+            *(f"  {p}" for p in before),
+            "after: passed" if not after else "after:",
+            *(f"  {p}" for p in after),
+            *usage_lines(usage.usage_metadata, costs),
+        ]
+    )
+
+
+def usage_lines(usage_metadata: dict, costs: "CostCallback") -> list[str]:
+    """Token counts per model and the summed provider-reported cost."""
+    tokens = [
+        f"  {model}: input {u['input_tokens']}, output {u['output_tokens']}, total {u['total_tokens']}"
+        for model, u in usage_metadata.items()
+    ]
+    return [
+        "tokens:" if tokens else "tokens: none reported",
+        *tokens,
+        "cost: not reported" if not costs.costs else f"cost: {sum(costs.costs):.6f}",
+    ]
 
 
 class CostCallback(BaseCallbackHandler):
@@ -117,10 +153,18 @@ def main() -> None:
     parser.add_argument("--image-url", default=IMAGE_URL)
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
     parser.add_argument("--language", default="en", help="copy language, e.g. ar")
+    parser.add_argument(
+        "--repair-demo",
+        action="store_true",
+        help="skip the graph; repair a fixed broken page with one model call",
+    )
     args = parser.parse_args()
 
     load_dotenv()
     logging.basicConfig(level=logging.INFO)
+    if args.repair_demo:
+        print(run_repair_demo(make_llm(args.model)))
+        return
     summary = run_smoke(
         make_llm(args.model),
         no_search if args.angle else make_search_tool(),
