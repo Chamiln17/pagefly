@@ -44,7 +44,8 @@ def should_repair(state: PageState) -> str:
 def check_page(
     html: str, layout: dict, image_urls: list[str] | None = None
 ) -> list[str]:
-    """Deterministic page check: the HTML parses, every layout section has an
+    """Deterministic page check: the HTML parses and ends with `</html>`
+    (nothing trails the document), every layout section has an
     element whose `id` is the section's layout id, every `<img>` has alt text,
     and, when the run has product images, one of them is an `<img src>`."""
     # ponytail: html.parser recovers from almost anything, so "does not parse"
@@ -52,7 +53,12 @@ def check_page(
     soup = BeautifulSoup(html, "html.parser")
     if soup.find("html") is None:
         return ["HTML does not parse: no <html> element."]
-    problems = [
+    problems = []
+    if not html.rstrip().lower().endswith("</html>"):
+        problems.append(
+            "Text outside the HTML document: the page must end with </html>."
+        )
+    problems += [
         f"Layout section '{s['id']}' has no element with id=\"{s['id']}\"."
         for s in layout.get("sections", [])
         if soup.find(id=s["id"]) is None

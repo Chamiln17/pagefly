@@ -228,6 +228,40 @@ def test_check_needs_no_product_image_when_the_run_has_none():
     assert not state.get("error_message")
 
 
+CLEAN_TWO_SECTION_HTML = (
+    "<!DOCTYPE html><html><body>"
+    f"<section id='hero'>{IMG}</section>"
+    "<div id='pricing'>4500 DZD</div></body></html>"
+)
+
+
+def test_html_agent_keeps_only_the_html_document_from_a_chatty_reply():
+    # A real model wrapped the page in prose and a markdown fence (smoke run, #19).
+    chatty = (
+        "Here is the complete HTML document:\n```html\n"
+        + CLEAN_TWO_SECTION_HTML
+        + "\n```\n### Notes\nThe palette is warm and minimal."
+    )
+
+    state = run_with_html(chatty)
+
+    assert state["generated_html"] == CLEAN_TWO_SECTION_HTML
+    assert state["check_problems"] == []
+
+
+def test_check_reports_text_after_an_unclosed_html_document():
+    state = run_with_html(
+        "<!DOCTYPE html><html><body>"
+        f"<section id='hero'>{IMG}</section><div id='pricing'></div></body>"
+        "\nNotes: the palette is warm."
+    )
+
+    assert state["check_problems"] == [
+        "Text outside the HTML document: the page must end with </html>."
+    ]
+    assert state["error_message"]
+
+
 def test_check_reports_html_that_does_not_parse():
     state = run_with_html("Sorry, I cannot build this page.")
 

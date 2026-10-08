@@ -8,6 +8,7 @@ from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableLambda
 
+from core.html_document import extract_html_document
 from core.state import format_price
 
 logger = logging.getLogger(__name__)
@@ -102,11 +103,10 @@ def get_codegen_agent_runnable(llm: BaseChatModel):
                 fixed_layout, generated_copy, format_price(state), images
             )
         )
-        html = str(response.content)
-        if not html.strip().lower().startswith("<!doctype html>"):
-            logger.warning(
-                "Coder output does not start with <!DOCTYPE html>: %.200s", html
-            )
+        reply = str(response.content)
+        html = extract_html_document(reply)
+        if html != reply.strip():
+            logger.warning("Dropped text around the HTML document in the coder reply")
         return html
 
     return RunnableLambda(generate_html)
