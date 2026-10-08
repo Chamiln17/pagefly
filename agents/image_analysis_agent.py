@@ -1,7 +1,7 @@
 # agents/image_analysis_agent.py: describes each product image
 
 import logging
-from typing import Dict
+from typing import Any, Dict
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -41,7 +41,7 @@ def build_image_analysis_messages(image_url: str):
     """Builds messages for the image analysis agent."""
     if not image_url or not image_url.startswith(("http://", "https://")):
         raise ValueError(f"Invalid or missing image URL: {image_url}")
-    user_content = [
+    user_content: list[str | dict[Any, Any]] = [
         {
             "type": "text",
             "text": "Describe the key visual elements of this product image relevant for marketing.",

@@ -4,6 +4,10 @@ PageFly turns a product's name, price and images into a single-file HTML landing
 
 This repository is the backend only.
 
+![A generated Arabic, right-to-left landing page for a ceramic coffee cup](docs/screenshot.png)
+
+_A page generated in Arabic by a recorded smoke run (see [Smoke run](#smoke-run))._
+
 ## Hackathon origin
 
 PageFly was built in 24 hours (18–19 April 2025) at Maystro Delivery's internal Agentic AI Hackathon to showcase agentic AI. The team of four placed 2nd.
@@ -98,15 +102,25 @@ Endpoints:
 
 ## Smoke run
 
-`scripts/smoke_run.py` runs the real graph once on a sample product, writes the page to `out/smoke_page.html` and prints the route, check result, repair passes and token usage. It makes paid API calls and reads `.env` itself.
+`scripts/smoke_run.py` runs the real graph once on a sample product, writes the page to `out/smoke_page.html` and prints the route, check result, repair passes, token usage and the provider-reported cost summed over all model calls (`cost: not reported` when the provider sends none). It makes paid API calls and reads `.env` itself.
 
 ```shell
 uv run python scripts/smoke_run.py --help
 ```
 
-Pass `--angle "<text>"` to skip research, so no `TAVILY_API_KEY` is needed.
+Pass `--angle "<text>"` to skip research, so no `TAVILY_API_KEY` is needed. Pass `--language <code>` (default `en`) to set the copy language.
 
-A recorded run on 2026-10-08 with `deepseek/deepseek-v4.1-flash` through OpenRouter took the research route, passed the check with 0 repair passes and used 31,159 tokens (about $0.014 at list price). The page showed the product image with alt text taken from the image analysis.
+`--repair-demo` skips the graph and needs no `TAVILY_API_KEY`. It sends a fixed page with known problems (no `cta` section, an `<img>` without `alt`) to the repair agent in one model call, checks the result, and prints the problems before and after, token usage and cost.
+
+`--screenshot` saves a PNG beside the page with an installed Edge or Chrome in headless mode (`BROWSER_PATH`, when it names an existing file, overrides the search). With no browser found, or one that fails to start, it prints a message and carries on.
+
+Recorded runs on 2026-10-08 with `deepseek/deepseek-v4.1-flash` through OpenRouter (costs are what the provider billed):
+
+| Run | Result | Tokens | Cost |
+|---|---|---|---|
+| English, research route | check passed, 0 repair passes, product image shown | 31,159 | $0.0078 |
+| Arabic (`--language ar --angle … --screenshot`) | check passed, 0 repair passes; the screenshot above | 11,251 | $0.0032 |
+| `--repair-demo` | both problems fixed in one call, check passed | 461 | $0.00008 |
 
 ## Tests and lint
 
@@ -116,13 +130,16 @@ The tests run offline with a scripted fake chat model and a fake search tool; th
 uv run pytest
 uv run ruff check .
 uv run ruff format --check .
+uv run mypy .
 ```
+
+CI runs the same checks, plus `uv lock --check`, on every push and pull request.
 
 ## Known limits
 
 - Generated pages live in an in-memory dict and are lost when the server stops.
 - Generation is synchronous: a request waits for the whole graph, about a minute.
-- The Shopify scraper is best-effort: its selectors fit a few Shopify themes, and it has no tests.
+- The Shopify scraper reads Shopify's public product JSON (`<product url>.json`) and takes the currency from the page's `og:price:currency` tag (USD when the tag is missing). When the JSON is unavailable it falls back to HTML selectors that fit only a few Shopify themes. Stores that disable the JSON endpoint and use other themes return 422.
 - The frontend is not in this repository.
-- The check step is structural only (section ids, alt text, product image present, parsing). It does not judge copy or design quality.
+- The check step is structural only (section ids, alt text, product image present, nothing after `</html>`, parsing). It does not judge copy or design quality.
 - "Parses" means the page has an `<html>` element: Python's HTML parser accepts almost any input.

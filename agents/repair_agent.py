@@ -1,10 +1,10 @@
 # agents/repair_agent.py: fixes a page the check step rejected
 
-import re
-
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableLambda
+
+from core.html_document import extract_html_document
 
 repair_system_prompt = """You repair single-file HTML landing pages that failed an automated check.
 You receive the page and the list of problems the check found. Fix every problem and change nothing else: keep the copy, structure and styling.
@@ -13,14 +13,6 @@ You receive the page and the list of problems the check found. Fix every problem
 - When a problem lists product image URLs, add an `<img>` with one of those URLs as its `src`.
 - The page must be a full HTML document with an `<html>` element.
 Output *only* the fixed HTML, starting with `<!DOCTYPE html>` and ending with `</html>`. No markdown fences, no explanations."""
-
-FENCE = re.compile(r"^\s*```[a-zA-Z]*\s*\n(.*?)\n?```\s*$", re.DOTALL)
-
-
-def strip_fences(text: str) -> str:
-    """Returns the body of a markdown code fence, or the text unchanged."""
-    match = FENCE.match(text)
-    return match.group(1) if match else text
 
 
 def get_repair_runnable(llm: BaseChatModel):
@@ -36,6 +28,6 @@ def get_repair_runnable(llm: BaseChatModel):
                 ),
             ]
         )
-        return strip_fences(str(reply.content))
+        return extract_html_document(str(reply.content), "repair")
 
     return RunnableLambda(_repair)
