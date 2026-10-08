@@ -34,7 +34,7 @@ uv lock --check
 
 - Read [CODING_STANDARDS.md](CODING_STANDARDS.md) and use the vocabulary in [GLOSSARY.md](GLOSSARY.md).
 - Write tests against the agent graph or the HTTP API with the fake models in `tests/`. Tests must run offline with no API keys.
-- A change to an agent prompt should come with one real smoke run (`scripts/smoke_run.py`). Say in the pull request what it showed and what it cost.
+- A change to an agent prompt should come with one real smoke run (`uv run python -m scripts.smoke_run`). Say in the pull request what it showed and what it cost.
 - Add dependencies with `uv add`, never by editing the lock file by hand.
 
 ## Pull requests
