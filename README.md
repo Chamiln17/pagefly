@@ -122,7 +122,7 @@ uv run ruff format --check .
 
 - Generated pages live in an in-memory dict and are lost when the server stops.
 - Generation is synchronous: a request waits for the whole graph, about a minute.
-- The Shopify scraper is best-effort: its selectors fit a few Shopify themes, and it has no tests.
+- The Shopify scraper reads Shopify's public product JSON (`<product url>.json`) and takes the currency from the page's `og:price:currency` tag (USD when the tag is missing). When the JSON is unavailable it falls back to HTML selectors that fit only a few Shopify themes. Stores that disable the JSON endpoint and use other themes return 422.
 - The frontend is not in this repository.
 - The check step is structural only (section ids, alt text, product image present, parsing). It does not judge copy or design quality.
 - "Parses" means the page has an `<html>` element: Python's HTML parser accepts almost any input.

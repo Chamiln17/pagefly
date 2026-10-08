@@ -6,7 +6,7 @@ from fastapi.responses import HTMLResponse
 
 from .generator import get_graph, initial_state
 from .schemas import LandingPageParams, ShopifyURLRequest
-from .scraper.shopify_scraper import scrape_shopify_data
+from .scraper.shopify_scraper import ScrapeError, scrape_shopify_data
 from .storage import page_store
 
 router = APIRouter()
@@ -44,16 +44,10 @@ def preview_page(page_key: str):
 async def extract_product_data_and_generate(
     payload: ShopifyURLRequest, graph=Depends(get_graph)
 ):
-    scraped = await scrape_shopify_data(payload.url)
-
-    if (
-        not scraped["product_name"]
-        or not scraped["product_price"]
-        or not scraped["images"]
-    ):
-        raise HTTPException(
-            status_code=422, detail="Insufficient product data extracted."
-        )
+    try:
+        scraped = await scrape_shopify_data(str(payload.url))
+    except ScrapeError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     landing_data = LandingPageParams(
         product_name=scraped["product_name"],

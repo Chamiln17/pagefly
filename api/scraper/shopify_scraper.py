@@ -6,11 +6,72 @@ import httpx
 logger = logging.getLogger(__name__)
 
 
-async def scrape_shopify_data(url: str) -> Dict:
-    async with httpx.AsyncClient() as client:
-        response = await client.get(str(url))
+class ScrapeError(Exception):
+    """Neither the product JSON nor the product page gave enough product data."""
 
-    soup = BeautifulSoup(response.content, "html.parser")
+
+async def scrape_shopify_data(
+    url: str, client: httpx.AsyncClient | None = None
+) -> Dict:
+    """Read Shopify's public product JSON; fall back to the product page HTML."""
+    if client is None:
+        async with httpx.AsyncClient(follow_redirects=True) as client:
+            return await _scrape(url, client)
+    return await _scrape(url, client)
+
+
+async def _scrape(url: str, client: httpx.AsyncClient) -> Dict:
+    product_url = httpx.URL(url)
+    json_url = product_url.copy_with(
+        path=product_url.path.rstrip("/") + ".json", query=None
+    )
+    product = await _get_json_product(client, json_url)
+    try:
+        html = (await client.get(product_url)).content
+    except httpx.HTTPError as exc:
+        logger.debug("product page request failed: %s", exc)
+        html = b""
+
+    if product:
+        # Shopify's product JSON has no currency; take it from the page, else the
+        # HTML extraction's USD default.
+        return product | {"currency": _page_currency(html) or "USD"}
+
+    scraped = _from_html(html)
+    if not (scraped["product_name"] and scraped["product_price"] and scraped["images"]):
+        raise ScrapeError("Insufficient product data extracted.")
+    return scraped
+
+
+async def _get_json_product(client: httpx.AsyncClient, json_url: httpx.URL) -> Dict:
+    """Map Shopify's `<product url>.json`; empty dict when unusable."""
+    try:
+        response = await client.get(json_url)
+        response.raise_for_status()
+        product = response.json()["product"]
+        scraped = {
+            "product_name": product["title"],
+            "product_price": float(product["variants"][0]["price"]),
+            "images": [image["src"] for image in product["images"]][:6],
+        }
+    except (httpx.HTTPError, ValueError, KeyError, IndexError, TypeError) as exc:
+        logger.debug("product JSON unusable, falling back to HTML: %r", exc)
+        return {}
+    return scraped if all(scraped.values()) else {}
+
+
+def _page_currency(html: bytes) -> str | None:
+    """The ISO currency Shopify themes publish in `og:price:currency`."""
+    tag = BeautifulSoup(html, "html.parser").select_one(
+        'meta[property="og:price:currency"]'
+    )
+    content = tag.get("content") if tag else None
+    return content if isinstance(content, str) and content else None
+
+
+def _from_html(html: bytes) -> Dict:
+    """Feninekh Chaima's HTML extraction; selectors fit a few Shopify themes."""
+    soup = BeautifulSoup(html, "html.parser")
 
     # Extract product title
     title_tag = soup.select_one("h1.logo a[aria-label]")

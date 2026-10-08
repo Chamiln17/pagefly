@@ -1,0 +1,20 @@
+{
+  "product": {
+    "id": 632910392,
+    "title": "Smart Mug",
+    "handle": "smart-mug",
+    "variants": [
+      {"id": 808950810, "title": "Black", "price": "4500.00", "sku": "MUG-BLK"},
+      {"id": 808950811, "title": "White", "price": "4700.00", "sku": "MUG-WHT"}
+    ],
+    "images": [
+      {"id": 1, "src": "https://cdn.shopify.com/s/files/1/0001/products/mug-1.jpg"},
+      {"id": 2, "src": "https://cdn.shopify.com/s/files/1/0001/products/mug-2.jpg"},
+      {"id": 3, "src": "https://cdn.shopify.com/s/files/1/0001/products/mug-3.jpg"},
+      {"id": 4, "src": "https://cdn.shopify.com/s/files/1/0001/products/mug-4.jpg"},
+      {"id": 5, "src": "https://cdn.shopify.com/s/files/1/0001/products/mug-5.jpg"},
+      {"id": 6, "src": "https://cdn.shopify.com/s/files/1/0001/products/mug-6.jpg"},
+      {"id": 7, "src": "https://cdn.shopify.com/s/files/1/0001/products/mug-7.jpg"}
+    ]
+  }
+}

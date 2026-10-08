@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 
 import api.main
 from api.generator import SECTIONS, get_graph
+from api.scraper.shopify_scraper import ScrapeError
 from api.storage import page_store
 from fakes import fake_llm, make_fake_search
 from workflow.graph import create_graph
@@ -131,6 +132,23 @@ def test_failing_page_check_returns_502_and_stores_nothing(client):
     assert response.status_code == 502
     assert "pricing" in response.json()["detail"]
     assert page_store == {}
+
+
+def test_scrape_shopify_returns_422_when_scraping_finds_too_little(client, monkeypatch):
+    async def failing_scrape(url):
+        raise ScrapeError("Insufficient product data extracted.")
+
+    monkeypatch.setattr("api.routes.scrape_shopify_data", failing_scrape)
+    llm = use_graph()
+
+    response = client.post(
+        "/scrape-shopify", json={"url": "https://shop.example.com/p"}
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "Insufficient product data extracted."
+    assert page_store == {}
+    assert llm.prompts == []
 
 
 def test_scrape_shopify_generates_through_the_graph(client, monkeypatch):
