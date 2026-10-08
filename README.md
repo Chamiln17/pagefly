@@ -140,6 +140,16 @@ CI runs the same checks, plus `uv lock --check`, on every push and pull request.
 - Generated pages live in an in-memory dict and are lost when the server stops.
 - Generation is synchronous: a request waits for the whole graph, about a minute.
 - The Shopify scraper reads Shopify's public product JSON (`<product url>.json`) and takes the currency from the page's `og:price:currency` tag (USD when the tag is missing). When the JSON is unavailable it falls back to HTML selectors that fit only a few Shopify themes. Stores that disable the JSON endpoint and use other themes return 422.
+- `/scrape-shopify` returns 422 for a URL, or a redirect, whose host resolves to a non-public address (loopback, private, link-local, reserved). The check runs before the request, so a DNS answer that changes between check and connect (DNS rebinding) is not caught.
 - The frontend is not in this repository.
 - The check step is structural only (section ids, alt text, product image present, nothing after `</html>`, parsing). It does not judge copy or design quality.
 - "Parses" means the page has an `<html>` element: Python's HTML parser accepts almost any input.
+- The API has no authentication or rate limiting, and every generation calls paid APIs. See [SECURITY.md](SECURITY.md) before deploying it anywhere public.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md). Report security problems privately as described in [SECURITY.md](SECURITY.md).
+
+## License
+
+[MIT](LICENSE)

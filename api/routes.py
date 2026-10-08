@@ -1,15 +1,19 @@
 import random
+from typing import get_args
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import HTMLResponse
+from pydantic import ValidationError
 
 from .generator import get_graph, initial_state
 from .schemas import LandingPageParams, ShopifyURLRequest
 from .scraper.shopify_scraper import (
     ScrapedProduct,
     ScrapeError,
+    Resolver,
+    host_resolver,
     http_client,
     scrape_shopify_data,
 )
@@ -51,25 +55,38 @@ async def extract_product_data_and_generate(
     payload: ShopifyURLRequest,
     graph=Depends(get_graph),
     client: httpx.AsyncClient = Depends(http_client),
+    resolve: Resolver = Depends(host_resolver),
 ):
     try:
-        scraped: ScrapedProduct = await scrape_shopify_data(str(payload.url), client)
+        scraped: ScrapedProduct = await scrape_shopify_data(
+            str(payload.url), client, resolve
+        )
     except ScrapeError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     # ScrapedProduct's str currency and image URLs become the model's Literal and
     # HttpUrl fields here, at validation.
-    landing_data = LandingPageParams.model_validate(
-        {
-            **scraped,
-            "is_hero": True,
-            "is_feature": True,
-            "is_testimonials": True,
-            "is_pricing": True,
-            "is_contact": True,
-            "is_footer": True,
-            "marketing_angle": payload.marketing_angle,
-        }
-    )
+    supported = get_args(LandingPageParams.model_fields["currency"].annotation)
+    if scraped["currency"] not in supported:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Unsupported currency '{scraped['currency']}': "
+            f"supported currencies are {', '.join(supported)}.",
+        )
+    try:
+        landing_data = LandingPageParams.model_validate(
+            {
+                **scraped,
+                "is_hero": True,
+                "is_feature": True,
+                "is_testimonials": True,
+                "is_pricing": True,
+                "is_contact": True,
+                "is_footer": True,
+                "marketing_angle": payload.marketing_angle,
+            }
+        )
+    except ValidationError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     # The graph is synchronous and slow; keep it off the event loop.
     return await run_in_threadpool(generate_and_store, landing_data, graph)

@@ -1,5 +1,8 @@
+import asyncio
+import functools
+import ipaddress
 import logging
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from typing import Any, Dict, TypedDict
 
 from bs4 import BeautifulSoup
@@ -9,7 +12,8 @@ logger = logging.getLogger(__name__)
 
 
 class ScrapeError(Exception):
-    """Neither the product JSON nor the product page gave enough product data."""
+    """The URL is not a public address, or neither the product JSON nor the product
+    page gave enough product data."""
 
 
 class ScrapedProduct(TypedDict):
@@ -19,23 +23,39 @@ class ScrapedProduct(TypedDict):
     images: list[str]
 
 
+Resolver = Callable[[str], Awaitable[list[str]]]
+
+
 async def http_client() -> AsyncIterator[httpx.AsyncClient]:
     """FastAPI dependency: the HTTP client the scraper fetches the shop with."""
-    async with httpx.AsyncClient(follow_redirects=True) as client:
+    async with httpx.AsyncClient() as client:
         yield client
 
 
-async def scrape_shopify_data(url: str, client: httpx.AsyncClient) -> ScrapedProduct:
-    """Read Shopify's public product JSON; fall back to the product page HTML."""
+async def resolve_host(host: str) -> list[str]:
+    """Every address DNS gives for `host`."""
+    infos = await asyncio.get_running_loop().getaddrinfo(host, None)
+    return [str(info[4][0]) for info in infos]
+
+
+def host_resolver() -> Resolver:
+    """FastAPI dependency: how the scraper resolves a shop's host name."""
+    return resolve_host
+
+
+async def scrape_shopify_data(
+    url: str, client: httpx.AsyncClient, resolve: Resolver
+) -> ScrapedProduct:
+    """Read Shopify's public product JSON; fall back to the product page HTML.
+    Refuses (ScrapeError) any URL or redirect whose host is not a public address."""
     product_url = httpx.URL(url)
     json_url = product_url.copy_with(
         path=product_url.path.rstrip("/") + ".json", query=None
     )
-    product = await _get_json_product(
-        client, json_url, product_url.params.get("variant")
-    )
+    get = functools.partial(_get, client, resolve)
+    product = await _get_json_product(get, json_url, product_url.params.get("variant"))
     try:
-        html = (await client.get(product_url)).content
+        html = (await get(product_url)).content
     except httpx.HTTPError as exc:
         logger.debug("product page request failed: %s", exc)
         html = b""
@@ -57,12 +77,14 @@ async def scrape_shopify_data(url: str, client: httpx.AsyncClient) -> ScrapedPro
 
 
 async def _get_json_product(
-    client: httpx.AsyncClient, json_url: httpx.URL, variant_id: str | None
+    get: Callable[[httpx.URL], Awaitable[httpx.Response]],
+    json_url: httpx.URL,
+    variant_id: str | None,
 ) -> Dict[str, Any]:
     """Map Shopify's `<product url>.json`; empty dict when unusable. The price is
     the variant `variant_id` names, else the first variant's."""
     try:
-        response = await client.get(json_url)
+        response = await get(json_url)
         response.raise_for_status()
         product = response.json()["product"]
         variants = product["variants"]
@@ -76,6 +98,38 @@ async def _get_json_product(
         logger.debug("product JSON unusable, falling back to HTML: %r", exc)
         return {}
     return scraped if all(scraped.values()) else {}
+
+
+async def _get(
+    client: httpx.AsyncClient, resolve: Resolver, url: httpx.URL
+) -> httpx.Response:
+    """GET `url`, following redirects by hand so every hop is checked to be public."""
+    for _ in range(client.max_redirects + 1):
+        await _require_public(url, resolve)
+        response = await client.get(url, follow_redirects=False)
+        if response.next_request is None:
+            return response
+        url = response.next_request.url
+    raise httpx.TooManyRedirects("Too many redirects.", request=response.request)
+
+
+async def _require_public(url: httpx.URL, resolve: Resolver) -> None:
+    """Raise ScrapeError unless `url` is http(s) and every address of its host is
+    globally routable.
+    ponytail: the client resolves the host again when it connects, so DNS rebinding
+    between this check and the connect gets through; pin the checked address in a
+    custom transport if that matters."""
+    if url.scheme not in ("http", "https"):
+        raise ScrapeError(f"Refusing to fetch {url}: only http and https are allowed.")
+    try:
+        addresses = [ipaddress.ip_address(url.host)]
+    except ValueError:
+        try:
+            addresses = [ipaddress.ip_address(a) for a in await resolve(url.host)]
+        except OSError as exc:
+            raise ScrapeError(f"Cannot resolve {url.host}: {exc}") from exc
+    if not addresses or any(not a.is_global or a.is_multicast for a in addresses):
+        raise ScrapeError(f"Refusing to fetch {url.host}: not a public address.")
 
 
 def _page_currency(html: bytes) -> str | None:
