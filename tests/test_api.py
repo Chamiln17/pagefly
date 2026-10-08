@@ -167,6 +167,28 @@ def test_scrape_shopify_returns_422_when_scraping_finds_too_little(client):
     assert llm.prompts == []
 
 
+def test_scrape_shopify_returns_422_for_an_unsupported_currency(client):
+    gbp_page = PRODUCT_HTML.replace(
+        b'og:price:currency" content="DZD"', b'og:price:currency" content="GBP"'
+    )
+    serve_shop(
+        {
+            "/products/smart-mug.json": (200, PRODUCT_JSON),
+            "/products/smart-mug": (200, gbp_page),
+        }
+    )
+    llm = use_graph()
+
+    response = client.post("/scrape-shopify", json={"url": SHOP_URL})
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == (
+        "Unsupported currency 'GBP': supported currencies are DZD, EUR, USD."
+    )
+    assert page_store == {}
+    assert llm.prompts == []
+
+
 def test_scrape_shopify_generates_through_the_graph(client):
     serve_shop(
         {
