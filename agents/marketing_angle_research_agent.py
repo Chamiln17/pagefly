@@ -1,7 +1,6 @@
 # agents/marketing_angle_research_agent.py: researches a Marketing Angle with web search
 
 import json
-import logging
 from typing import Dict
 
 from langchain.agents import create_agent
@@ -9,8 +8,6 @@ from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage
 from langchain_core.runnables import RunnableLambda
 from langchain_core.tools import BaseTool
-
-logger = logging.getLogger(__name__)
 
 research_system_prompt = """You are a marketing research assistant for e-commerce products.
 Use the web search tool to look up market trends, competitors and customer keywords before answering.
@@ -32,22 +29,25 @@ Include only this JSON structure in your response - no explanations or additiona
 
 
 def get_marketing_research_runnable(llm: BaseChatModel, search_tool: BaseTool):
-    """Creates a tool-calling agent runnable that researches a Marketing Angle."""
+    """Tool-calling agent runnable returning the research that yields the
+    Marketing Angle; raises when the agent's reply has no usable JSON."""
     agent = create_agent(llm, [search_tool], system_prompt=research_system_prompt)
 
-    def _wrapped_invoke(state_dict: Dict) -> Dict:
-        product_name = state_dict.get("product_name", "the product")
-        # Use the generated descriptions as primary context
-        descriptions = state_dict.get("product_image_descriptions", [])
-        visual_insights_summary = []
-        for desc_dict in descriptions:
-            summary = f"- Image ({desc_dict.get('image_url_analyzed', 'N/A')}): "
-            summary += f"Description='{desc_dict.get('description', 'N/A')}'."
-            visual_insights_summary.append(summary)
-        visual_insights_str = "\n".join(visual_insights_summary)
+    def research_marketing_angle(state: Dict) -> Dict:
+        product_name = state.get("product_name") or "the product"
+        visual_insights_str = "\n".join(
+            f"- Image ({d.get('image_url_analyzed', 'N/A')}): "
+            f"Description='{d.get('description', 'N/A')}'."
+            for d in state.get("product_image_descriptions") or []
+        )
+        description = state.get("product_description")
+        description_line = (
+            f"Product description: {description}\n\n" if description else ""
+        )
 
         agent_query = (
             f"Task: Determine the single most effective marketing angle for the product '{product_name}'.\n\n"
+            f"{description_line}"
             f"Context based on product image analysis:\n{visual_insights_str}\n\n"
             f"Instructions:\n"
             f"1. Analyze the provided visual context insights.\n"
@@ -61,41 +61,17 @@ def get_marketing_research_runnable(llm: BaseChatModel, search_tool: BaseTool):
             f"{angle_output_format_with_justification}"
         )
 
-        try:
-            result = agent.invoke({"messages": [HumanMessage(content=agent_query)]})
-            agent_output_str = result["messages"][-1].text
+        result = agent.invoke({"messages": [HumanMessage(content=agent_query)]})
+        reply = result["messages"][-1].text
+        # The reply may have extra text around the JSON object.
+        json_start = reply.find("{")
+        if json_start == -1:
+            raise ValueError(f"Research reply has no JSON: {reply[:200]}")
+        parsed = json.loads(reply[json_start : reply.rfind("}") + 1])
+        if "recommended_angle" not in parsed:
+            raise ValueError(
+                f"Research reply has no 'recommended_angle': {reply[:200]}"
+            )
+        return parsed["recommended_angle"]
 
-            # Agent output might have extra text around the JSON block
-            json_start = agent_output_str.find("{")
-            json_end = agent_output_str.rfind("}") + 1
-            if json_start == -1:
-                marketing_strategy = {
-                    "error": "Agent output did not contain valid JSON",
-                    "raw_output": agent_output_str,
-                }
-            else:
-                try:
-                    parsed_output = json.loads(agent_output_str[json_start:json_end])
-                    marketing_strategy = parsed_output.get(
-                        "recommended_angle",
-                        {
-                            "error": "Agent output missing 'recommended_angle'",
-                            "raw_output": agent_output_str,
-                        },
-                    )
-                except json.JSONDecodeError:
-                    logger.warning(
-                        "Failed to parse JSON from marketing research response: %s",
-                        agent_output_str,
-                    )
-                    marketing_strategy = {
-                        "error": "Failed to parse agent JSON output",
-                        "raw_output": agent_output_str,
-                    }
-        except Exception as e:
-            logger.exception("Marketing research agent execution failed")
-            marketing_strategy = {"error": f"Agent execution failed: {e}"}
-
-        return {"marketing_strategy": marketing_strategy}
-
-    return RunnableLambda(_wrapped_invoke)
+    return RunnableLambda(research_marketing_angle)

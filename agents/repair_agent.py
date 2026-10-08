@@ -10,6 +10,7 @@ repair_system_prompt = """You repair single-file HTML landing pages that failed 
 You receive the page and the list of problems the check found. Fix every problem and change nothing else: keep the copy, structure and styling.
 - Every layout section needs one element whose `id` is the section's id.
 - Every `<img>` needs a non-empty, descriptive `alt` attribute.
+- When a problem lists product image URLs, add an `<img>` with one of those URLs as its `src`.
 - The page must be a full HTML document with an `<html>` element.
 Output *only* the fixed HTML, starting with `<!DOCTYPE html>` and ending with `</html>`. No markdown fences, no explanations."""
 

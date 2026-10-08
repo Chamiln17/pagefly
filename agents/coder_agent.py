@@ -1,25 +1,18 @@
-# agents/coder_agent.py (Revised for Robustness with Fixed Layout + Generated Copy)
+# agents/coder_agent.py: turns the layout and generated copy into one HTML page
 
 import json
 import logging
 from typing import Dict, List
 
 from langchain_core.language_models import BaseChatModel
-
-# Using PromptTemplate is less direct here since we build messages manually
-# from langchain_core.prompts import PromptTemplate
-from langchain_core.runnables import RunnableLambda
 from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.runnables import RunnableLambda
 
-from agents.copywriting_agent import format_price
+from core.state import format_price
 
 logger = logging.getLogger(__name__)
 
-# --- System Prompt ---
-# Defines the core role and requirements
-
-# --- Simplified System Prompt (Use this one) ---
-codegen_system_prompt = """You are an expert frontend developer. Your task is to generate a complete, single-file HTML page based on a structural definition and provided text content (copy). An optional inspiration image URL may provide styling guidance.
+codegen_system_prompt = """You are an expert frontend developer. Your task is to generate a complete, single-file HTML page based on a structural definition and provided text content (copy).
 
 **Inputs (Provided in User Message):**
 - {LANGUAGE}: Determines document language attribute ('en', 'fr', etc.).
@@ -34,39 +27,35 @@ codegen_system_prompt = """You are an expert frontend developer. Your task is to
 - **Alt text (required):** Every `<img>` tag you write must have a non-empty, descriptive `alt` attribute.
 - Populate HTML elements precisely with text from the 'Generated Copy Content' JSON (provided in user message), mapping keys correctly. Handle sections with list items.
 - **Styling:**
-    - If an 'Inspiration Image' URL is provided, use it as a strong reference for visual style (colors, fonts, general feel).
-    - If no image is provided, use the specified CSS color variables (--clr-primary, --clr-secondary, --clr-background) to create a clean, modern, professional default style.
+    - Use the CSS color variables (--clr-primary, --clr-secondary, --clr-background) to create a clean, modern, professional style.
     - Ensure the page is reasonably responsive using standard CSS (e.g., flexbox/grid, max-width containers, relative units like rem/%). Avoid fixed pixel widths for layout.
-- **Image Placeholders:** Leave image placeholders like `[IMAGE: Description...]` exactly as they appear in the COPY_JSON within the generated HTML. DO NOT create `<img>` tags for them.
+- **Product Images (required):** Show the product images listed under 'Product Images' (provided in user message) as `<img>` tags, using each image's `src` URL exactly as given and a short `alt` text based on its description. Put them where the copy has image placeholders like `[IMAGE: Description...]`, and at least one in the first section.
 - **Output Format:** Output *only* the raw HTML code, starting *exactly* with `<!DOCTYPE html>` and ending with `</html>` no "```" and not "html". No explanations, comments outside code, or markdown.
 """
-# # --- Helper to build messages ---
 
 
 def build_coder_messages(
     fixed_layout: Dict,
     generated_copy: Dict,
-    inspiration_image_url: str = None,
     price: str = "not provided",
+    images: List[Dict] | None = None,
 ) -> List:
-    """Builds the message list for the coder agent LLM."""
-
-    # Prepare the data payloads as JSON strings for the prompt
-    fixed_layout_str = json.dumps(fixed_layout, indent=2)
-    generated_copy_str = json.dumps(generated_copy, indent=2)
-
-    # Construct the user message content parts
+    """Builds the message list for the coder agent LLM. `images` holds one
+    {"src", "alt"} per product image."""
+    image_lines = "\n".join(
+        f"- src: {img['src']}\n  alt: {img['alt']}" for img in images or []
+    )
     user_content_parts = [
         {
             "type": "text",
             "text": "**Page Structure Definition:**\n```json\n"
-            + fixed_layout_str
+            + json.dumps(fixed_layout, indent=2)
             + "\n```",
         },
         {
             "type": "text",
             "text": "**Generated Copy Content:**\n```json\n"
-            + generated_copy_str
+            + json.dumps(generated_copy, indent=2)
             + "\n```",
         },
         {
@@ -75,131 +64,49 @@ def build_coder_messages(
         },
         {
             "type": "text",
+            "text": "**Product Images:**\n" + (image_lines or "None provided."),
+        },
+        {
+            "type": "text",
             "text": "Generate the HTML code following all instructions in the system prompt, using the structure and copy provided above.",
         },
     ]
-
-    # Add image if provided
-    if inspiration_image_url:
-        try:
-            # Basic check if URL seems valid before adding
-            if inspiration_image_url.startswith(("http://", "https://")):
-                user_content_parts.append(
-                    {"type": "text", "text": "**Inspiration Image:**"}
-                )
-                user_content_parts.append(
-                    {"type": "image_url", "image_url": {"url": inspiration_image_url}}
-                )
-                user_content_parts.append(
-                    {
-                        "type": "text",
-                        "text": "Use the image above for visual style guidance.",
-                    }
-                )
-            else:
-                logger.warning(
-                    f"Warning: Invalid inspiration image URL format provided to coder: {inspiration_image_url}"
-                )
-                user_content_parts.append(
-                    {
-                        "type": "text",
-                        "text": "**Inspiration Image:** (URL not provided or invalid format - use default style)",
-                    }
-                )
-        except Exception as img_err:
-            logger.error(
-                f"Warning: Error processing inspiration image URL {inspiration_image_url}: {img_err}"
-            )
-            user_content_parts.append(
-                {
-                    "type": "text",
-                    "text": "**Inspiration Image:** (Error processing URL - use default style)",
-                }
-            )
-
-    else:
-        user_content_parts.append(
-            {
-                "type": "text",
-                "text": "**Inspiration Image:** None provided - use default clean, modern style.",
-            }
-        )
-
     return [
         SystemMessage(content=codegen_system_prompt),
         HumanMessage(content=user_content_parts),
     ]
 
 
-# --- Core Logic Function ---
-
-
-def invoke_coder_logic(llm: BaseChatModel, inputs: Dict) -> str:
-    """Prepares inputs and invokes the coder LLM chain."""
-
-    fixed_layout = inputs.get("fixed_layout_input")
-    generated_copy = inputs.get("generated_copy")
-    # Try to get image URL from fixed_layout first, then top-level state
-    inspiration_image_url = inputs.get("fixed_layout_input", {}).get(
-        "inspiration_image"
-    ) or inputs.get("product_image_url")  # Assumes state might have product_image_url
-
-    # Basic validation
-    if not fixed_layout or not generated_copy:
-        logger.error("Error: Coder agent missing fixed_layout_input or generated_copy.")
-        return "<!-- Error: Missing required layout or copy input. -->"
-    # Add more specific validation if needed (e.g., check if 'sections' key exists)
-    if not isinstance(fixed_layout, dict) or not isinstance(generated_copy, dict):
-        logger.error(
-            "Error: Coder agent received invalid input types for layout or copy."
-        )
-        return "<!-- Error: Invalid input type for layout or copy. -->"
-    if "sections" not in fixed_layout or "sections" not in generated_copy:
-        logger.error(
-            "Error: Coder input 'sections' key missing in fixed_layout or generated_copy."
-        )
-        return "<!-- Error: Missing 'sections' key in layout or copy input. -->"
-
-    # Build the messages for the LLM call
-    messages = build_coder_messages(
-        fixed_layout, generated_copy, inspiration_image_url, format_price(inputs)
-    )
-
-    try:
-        response = llm.invoke(messages)
-        generated_html = response.content
-        # Basic check if output looks like HTML
-        if not generated_html or not generated_html.strip().lower().startswith(
-            "<!doctype html>"
-        ):
-            logger.warning(
-                f"Warning: Coder output doesn't start with <!DOCTYPE html>:\n{generated_html[:200]}..."
-            )
-            # Return the potentially flawed output anyway, or an error comment
-            # return f"<!-- Error: Generated output may not be valid HTML -->\n{generated_html}"
-    except Exception as e:
-        logger.error(f"Error invoking coder LLM: {e}")
-        generated_html = f"<!-- Error during code generation: {e} -->"
-
-    return generated_html
-
-
-# --- Runnable Definition ---
-
-
 def get_codegen_agent_runnable(llm: BaseChatModel):
-    """Creates the runnable for the HTML/CSS generation agent."""
+    """Runnable taking the graph state and returning the page HTML; raises when
+    the layout or copy has no 'sections' or the model fails."""
 
-    def _wrapped_invoke(state_dict: Dict):
-        # Ensure required keys are present in the state dictionary before calling
-        if "fixed_layout_input" not in state_dict or "generated_copy" not in state_dict:
-            logger.error(
-                "Error: State missing 'fixed_layout_input' or 'generated_copy' for coder agent."
+    def generate_html(state: Dict) -> str:
+        fixed_layout = state.get("fixed_layout_input")
+        generated_copy = state.get("generated_copy")
+        if not isinstance(fixed_layout, dict) or "sections" not in fixed_layout:
+            raise ValueError("HTML generation needs a layout with 'sections'.")
+        if not isinstance(generated_copy, dict) or "sections" not in generated_copy:
+            raise ValueError("HTML generation needs copy with 'sections'.")
+
+        alt_by_url = {
+            d["image_url"]: d["description"]
+            for d in state.get("product_image_descriptions") or []
+        }
+        images = [
+            {"src": url, "alt": alt_by_url.get(url) or state.get("product_name")}
+            for url in state.get("product_image_urls") or []
+        ]
+        response = llm.invoke(
+            build_coder_messages(
+                fixed_layout, generated_copy, format_price(state), images
             )
-            # Return error HTML directly, don't invoke logic
-            return "<!-- Error: Graph state missing required inputs for code generation. -->"
+        )
+        html = str(response.content)
+        if not html.strip().lower().startswith("<!doctype html>"):
+            logger.warning(
+                "Coder output does not start with <!DOCTYPE html>: %.200s", html
+            )
+        return html
 
-        # Pass relevant parts of the state to the logic function
-        return invoke_coder_logic(llm, state_dict)
-
-    return RunnableLambda(_wrapped_invoke)
+    return RunnableLambda(generate_html)

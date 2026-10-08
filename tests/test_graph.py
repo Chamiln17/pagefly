@@ -14,8 +14,10 @@ IMAGE_REPLY = '{"visual_summary": "A black smart mug on a desk."}'
 COPY = {
     "sections": [{"id": "hero", "type": "hero", "copy": {"headline": "Hot coffee"}}]
 }
+IMG = "<img src='https://example.com/mug.jpg' alt='Black smart mug'>"
 HTML = (
-    "<!DOCTYPE html><html><body><section id='hero'>Hot coffee</section></body></html>"
+    f"<!DOCTYPE html><html><body><section id='hero'>{IMG}Hot coffee</section>"
+    "</body></html>"
 )
 
 
@@ -23,7 +25,7 @@ def initial_state(angle=None):
     return {
         "product_name": "Smart Mug",
         "product_image_urls": ["https://example.com/mug.jpg"],
-        "marketing_angle_input": angle,
+        "marketing_angle": angle,
         "fixed_layout_input": LAYOUT,
         "language": "en",
     }
@@ -36,7 +38,7 @@ def test_marketing_angle_given_skips_research():
     state = create_graph(llm, search).invoke(initial_state("Never drink cold coffee"))
 
     assert queries == []
-    assert state.get("marketing_strategy") is None
+    assert state.get("marketing_research") is None
     assert state["generated_html"] == HTML
     assert not state.get("error_message")
 
@@ -67,7 +69,7 @@ def test_without_marketing_angle_research_runs_and_feeds_the_copywriter():
     state = create_graph(llm, search).invoke(initial_state())
 
     assert queries == ["smart mug"]
-    assert state["marketing_strategy"] == research_answer["recommended_angle"]
+    assert state["marketing_research"] == research_answer["recommended_angle"]
     copywriter_prompt = next(
         str(p[0].content) for p in llm.prompts if "copywriter" in str(p[0].content)
     )
@@ -95,7 +97,7 @@ def test_agent_replies_are_parsed_into_state():
             "image_url_analyzed": "https://example.com/mug.jpg",
         }
     ]
-    assert state["marketing_strategy"] == {"angle": "Always hot"}
+    assert state["marketing_research"] == {"angle": "Always hot"}
     assert state["generated_copy"] == COPY
     assert state["generated_html"] == HTML
 
@@ -106,9 +108,9 @@ def test_failing_copywriter_makes_html_generation_skip():
 
     state = create_graph(llm, search).invoke(initial_state("Never drink cold coffee"))
 
-    assert "error" in state["generated_copy"]
+    assert not state.get("generated_copy")
     assert state["error_message"]
-    assert state["generated_html"] != HTML
+    assert not state.get("generated_html")
     assert not any(
         "expert frontend developer" in str(p[0].content) for p in llm.prompts
     )
@@ -124,6 +126,22 @@ def test_image_descriptions_reach_the_copywriter():
         str(p[0].content) for p in llm.prompts if "copywriter" in str(p[0].content)
     )
     assert "A black smart mug on a desk." in copywriter_prompt
+
+
+def test_product_images_and_their_descriptions_reach_the_html_generator():
+    search, _ = make_fake_search()
+    llm = fake_llm(IMAGE_REPLY, json.dumps(COPY), HTML)
+
+    create_graph(llm, search).invoke(initial_state("Never drink cold coffee"))
+
+    coder_prompt = next(
+        "\n".join(str(m.content) for m in p)
+        for p in llm.prompts
+        if "expert frontend developer" in str(p[0].content)
+    )
+    assert "https://example.com/mug.jpg" in coder_prompt
+    assert "A black smart mug on a desk." in coder_prompt
+    assert "DO NOT create `<img>`" not in coder_prompt
 
 
 TWO_SECTION_LAYOUT = {
@@ -147,7 +165,7 @@ def run_with_html(html):
 def test_check_passes_a_clean_page():
     html = (
         "<!DOCTYPE html><html><body>"
-        "<section id='hero'><img src='mug.jpg' alt='Black smart mug'></section>"
+        f"<section id='hero'>{IMG}</section>"
         "<div id='pricing'>4500 DZD</div></body></html>"
     )
 
@@ -160,7 +178,7 @@ def test_check_passes_a_clean_page():
 
 def test_check_reports_a_missing_layout_section():
     state = run_with_html(
-        "<!DOCTYPE html><html><body><section id='hero'>Hi</section></body></html>"
+        f"<!DOCTYPE html><html><body><section id='hero'>{IMG}</section></body></html>"
     )
 
     assert state["check_problems"] == [
@@ -172,7 +190,7 @@ def test_check_reports_a_missing_layout_section():
 def test_check_reports_images_without_alt_text():
     state = run_with_html(
         "<!DOCTYPE html><html><body><section id='hero'>"
-        "<img src='a.jpg'><img src='b.jpg' alt='  '></section>"
+        f"{IMG}<img src='a.jpg'><img src='b.jpg' alt='  '></section>"
         "<section id='pricing'></section></body></html>"
     )
 
@@ -181,6 +199,33 @@ def test_check_reports_images_without_alt_text():
         '<img src="b.jpg"> has no alt text.',
     ]
     assert state["error_message"]
+
+
+def test_check_reports_a_page_without_a_product_image():
+    state = run_with_html(
+        "<!DOCTYPE html><html><body><section id='hero'>"
+        "<img src='https://other.example/stock.jpg' alt='Stock photo'></section>"
+        "<section id='pricing'></section></body></html>"
+    )
+
+    assert state["check_problems"] == [
+        "No product image shown: add an <img> whose src is one of: "
+        "https://example.com/mug.jpg"
+    ]
+    assert state["error_message"]
+
+
+def test_check_needs_no_product_image_when_the_run_has_none():
+    search, _ = make_fake_search()
+    html = "<!DOCTYPE html><html><body><section id='hero'>Hi</section></body></html>"
+    llm = fake_llm(json.dumps(COPY), html)
+
+    state = create_graph(llm, search).invoke(
+        initial_state("Never drink cold coffee") | {"product_image_urls": []}
+    )
+
+    assert state["check_problems"] == []
+    assert not state.get("error_message")
 
 
 def test_check_reports_html_that_does_not_parse():
@@ -197,12 +242,14 @@ def test_check_is_skipped_after_an_earlier_error():
     state = create_graph(llm, search).invoke(initial_state("Never drink cold coffee"))
 
     assert "check_problems" not in state
-    assert state["error_message"] == "Error reported in generated_copy."
+    assert state["error_message"].startswith("Error in Copywriting Node")
 
 
-BROKEN_HTML = "<!DOCTYPE html><html><body><section id='hero'>Hi</section></body></html>"
+BROKEN_HTML = (
+    f"<!DOCTYPE html><html><body><section id='hero'>{IMG}</section></body></html>"
+)
 FIXED_HTML = (
-    "<!DOCTYPE html><html><body><section id='hero'>Hi</section>"
+    f"<!DOCTYPE html><html><body><section id='hero'>{IMG}</section>"
     "<section id='pricing'>4500 DZD</section></body></html>"
 )
 
@@ -256,3 +303,12 @@ def test_failing_repair_agent_ends_the_run_with_an_error():
 
     assert state["repair_passes"] == 1
     assert state["error_message"].startswith("Error in Repair Node")
+
+
+def test_failing_html_agent_ends_the_run_without_check_or_repair():
+    # The scripted model has no reply left for the HTML call, so it raises.
+    state, llm = run_with_replies()
+
+    assert state["error_message"].startswith("Error in HTML Generation Node")
+    assert "check_problems" not in state
+    assert repair_prompts(llm) == []

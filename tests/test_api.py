@@ -14,7 +14,8 @@ IMAGE_REPLY = '{"visual_summary": "A black smart mug on a desk."}'
 COPY = {
     "sections": [{"id": "hero", "type": "hero", "copy": {"headline": "Hot coffee"}}]
 }
-HTML = "<!DOCTYPE html><html><body><section id='hero'>Hot</section></body></html>"
+IMG = "<img src='https://example.com/mug.jpg' alt='Black smart mug'>"
+HTML = f"<!DOCTYPE html><html><body><section id='hero'>{IMG}</section></body></html>"
 
 
 def request_body(**overrides):
@@ -115,7 +116,7 @@ def test_graph_error_returns_502_and_stores_nothing(client):
     response = client.post("/generate", json=request_body(is_hero=True))
 
     assert response.status_code == 502
-    assert response.json()["detail"] == "Error reported in generated_copy."
+    assert response.json()["detail"].startswith("Error in Copywriting Node")
     assert page_store == {}
 
 
@@ -142,8 +143,9 @@ def test_scrape_shopify_generates_through_the_graph(client, monkeypatch):
         }
 
     monkeypatch.setattr("api.routes.scrape_shopify_data", fake_scrape)
-    full_page = "<!DOCTYPE html><html><body>%s</body></html>" % "".join(
-        f"<section id='{s['id']}'></section>" for s in SECTIONS.values()
+    full_page = "<!DOCTYPE html><html><body>%s%s</body></html>" % (
+        IMG,
+        "".join(f"<section id='{s['id']}'></section>" for s in SECTIONS.values()),
     )
     llm = use_graph(IMAGE_REPLY, json.dumps(COPY), full_page)
 

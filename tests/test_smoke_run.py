@@ -5,10 +5,11 @@ import json
 from langchain_core.messages import AIMessage
 
 from fakes import fake_llm, make_fake_search
-from scripts.smoke_run import run_smoke
+from scripts.smoke_run import IMAGE_URL, run_smoke
 
+IMG = f"<img src='{IMAGE_URL}' alt='Coffee mug'>"
 HTML = (
-    "<!DOCTYPE html><html><body><section id='hero'>Hi</section>"
+    f"<!DOCTYPE html><html><body><section id='hero'>{IMG}</section>"
     "<section id='features'></section><section id='cta'></section></body></html>"
 )
 COPY = {"sections": [{"id": "hero", "type": "hero", "copy": {"headline": "Hi"}}]}
@@ -62,7 +63,9 @@ def test_smoke_run_without_angle_takes_research_route(tmp_path):
 
 def test_smoke_run_reports_a_repair_pass(tmp_path):
     search, _ = make_fake_search()
-    broken = "<!DOCTYPE html><html><body><section id='hero'>Hi</section></body></html>"
+    broken = (
+        f"<!DOCTYPE html><html><body><section id='hero'>{IMG}</section></body></html>"
+    )
     llm = fake_llm('{"visual_summary": "A mug."}', json.dumps(COPY), broken, HTML)
 
     summary = run_smoke(llm, search, angle="Always hot", out_path=tmp_path / "p.html")

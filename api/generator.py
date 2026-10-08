@@ -50,10 +50,12 @@ def initial_state(data: LandingPageParams) -> PageState:
     sections = [s for switch, s in SECTIONS.items() if getattr(data, switch)]
     return {  # type: ignore[typeddict-item]
         "product_name": data.product_name,
+        # ponytail: the request has no description field; the name is the best we have.
+        "product_description": data.product_name,
         "product_image_urls": [str(url) for url in data.images],
         "product_price": data.product_price,
         "currency": data.currency,
-        "marketing_angle_input": data.marketing_angle,
+        "marketing_angle": data.marketing_angle,
         "fixed_layout_input": {"sections": sections},
         "language": data.language,
     }

@@ -28,7 +28,6 @@ LAYOUT = {
     ]
 }
 DEFAULT_OUT = Path("out/smoke_page.html")
-CHECK_KEY = "check_problems"
 
 
 def run_smoke(
@@ -43,7 +42,7 @@ def run_smoke(
     state = {
         "product_name": PRODUCT_NAME,
         "product_image_urls": [image_url],
-        "marketing_angle_input": angle,
+        "marketing_angle": angle,
         "fixed_layout_input": LAYOUT,
         "language": "en",
     }
@@ -53,12 +52,11 @@ def run_smoke(
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(final.get("generated_html") or "", encoding="utf-8")
 
-    if CHECK_KEY not in final:
-        check = "not run (no check step in graph state)"
-    elif final[CHECK_KEY]:
-        check = f"failed: {final[CHECK_KEY]}"
+    problems = final.get("check_problems")
+    if problems is None:
+        check = "skipped (earlier error)"
     else:
-        check = "passed"
+        check = f"failed: {problems}" if problems else "passed"
     tokens = [
         f"  {model}: input {u['input_tokens']}, output {u['output_tokens']}, total {u['total_tokens']}"
         for model, u in usage.usage_metadata.items()

@@ -48,8 +48,8 @@ graph TD;
 - **image_analyzer** describes each product image with the vision-capable chat model.
 - **marketing_researcher** runs only when the request has no Marketing Angle. It searches the web with Tavily and returns a recommended angle.
 - **copywriter** writes the copy for each section of the layout.
-- **html_generator** turns the layout, copy and image descriptions into one HTML file.
-- **checker** verifies that the HTML parses, that every layout section has an element with the section's id, and that every `<img>` has alt text.
+- **html_generator** turns the layout, copy and product images (with their descriptions as alt text) into one HTML file.
+- **checker** verifies that the HTML parses, that every layout section has an element with the section's id, that every `<img>` has alt text, and that at least one product image appears as an `<img src>` when the request has images.
 - **repairer** gets the page and the check's problem list and returns a fixed page. It runs at most once; the page is then checked again.
 - **finish** fails the run if problems remain.
 
@@ -124,5 +124,5 @@ uv run ruff format --check .
 - Generation is synchronous: a request waits for the whole graph, about a minute.
 - The Shopify scraper is best-effort: its selectors fit a few Shopify themes, and it has no tests.
 - The frontend is not in this repository.
-- The check step is structural only (section ids, alt text, parsing). It does not judge copy or design quality.
+- The check step is structural only (section ids, alt text, product image present, parsing). It does not judge copy or design quality.
 - A generated page may contain no product image: the recorded smoke run produced a page without an `<img>`.

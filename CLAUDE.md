@@ -35,10 +35,10 @@ copywriter -> html_generator -> checker -(problems, repair_passes < 1)-> repaire
 checker -> finish -> END
 ```
 
-- `PageState` (TypedDict) is the contract between nodes. Inputs: `product_name`, `product_image_urls`, `marketing_angle_input`, `product_price`, `currency`, `fixed_layout_input` (`{"sections": [{id, type, required_copy, ...}]}`), `language`. Outputs: `product_image_descriptions`, `marketing_strategy`, `generated_copy`, `generated_html`, `check_problems`, `repair_passes`, `error_message`.
+- `PageState` (TypedDict) is the contract between nodes. Inputs: `product_name`, `product_description`, `product_image_urls`, `marketing_angle`, `product_price`, `currency`, `fixed_layout_input` (`{"sections": [{id, type, required_copy, ...}]}`), `language`. Outputs: `product_image_descriptions`, `marketing_research`, `generated_copy`, `generated_html`, `check_problems`, `repair_passes`, `error_message`.
 - Each `agents/*_agent.py` exposes a `get_*_runnable(llm[, search_tool])` factory. Prompts live in the agent modules.
-- Error convention: a failing node writes `error_message`; later nodes skip. `finish` turns remaining `check_problems` into `error_message`.
-- `check_page` is deterministic: HTML parses, each layout section id exists, each `<img>` has alt text. `MAX_REPAIR_PASSES = 1`.
+- Error convention: agents raise on failure, never return placeholder output; `guarded()` wraps every node except `finish`, turns the exception into `error_message = "Error in <Node>: ..."`, and skips the node when `error_message` is already set. `finish` turns remaining `check_problems` into `error_message`.
+- `check_page` is deterministic: HTML parses, each layout section id exists, each `<img>` has alt text, and when the run has `product_image_urls` at least one of them is an `<img src>`. `MAX_REPAIR_PASSES = 1`.
 
 **API** (`api/`):
 - `generator.py`: `initial_state()` maps `LandingPageParams` to `PageState` (the `is_*` switches select sections from `SECTIONS`); `get_graph()` builds the real graph lazily and is a FastAPI dependency, so tests override it with fakes.
