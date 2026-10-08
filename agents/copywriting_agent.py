@@ -1,7 +1,6 @@
 # agents/copywriting_agent.py
 
 import json
-from typing import Dict
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.output_parsers import JsonOutputParser
@@ -127,7 +126,7 @@ def get_copywriting_agent_runnable(llm: BaseChatModel):
     when the model's reply is not JSON."""
     chain = copywriting_prompt | llm | copy_output_parser
 
-    def write_copy(state: Dict):
+    def write_copy(state: dict):
         marketing_context = state.get("marketing_angle") or state.get(
             "marketing_research"
         )

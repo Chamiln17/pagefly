@@ -1,7 +1,7 @@
 # workflow/graph.py: the agent graph
 
 import logging
-from typing import Callable
+from collections.abc import Callable
 
 from bs4 import BeautifulSoup
 from langchain_core.language_models import BaseChatModel

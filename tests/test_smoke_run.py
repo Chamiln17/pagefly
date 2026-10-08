@@ -2,9 +2,9 @@
 
 import json
 
+from fakes import fake_llm, make_fake_search
 from langchain_core.messages import AIMessage
 
-from fakes import fake_llm, make_fake_search
 from scripts.smoke_run import (
     IMAGE_URL,
     LAYOUT,
@@ -59,7 +59,7 @@ def test_smoke_run_writes_html_and_reports_route_check_and_tokens(tmp_path):
 
 
 def test_smoke_run_without_angle_takes_research_route(tmp_path):
-    search, queries = make_fake_search()
+    search, _queries = make_fake_search()
     llm = fake_llm(
         '{"visual_summary": "A mug."}',
         '{"recommended_angle": {"angle": "Always hot"}}',

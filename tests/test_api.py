@@ -4,13 +4,13 @@ from pathlib import Path
 
 import httpx
 import pytest
+from fakes import fake_llm, make_fake_search
 from fastapi.testclient import TestClient
 
 import api.main
 from api.generator import SECTIONS, get_graph
 from api.scraper.shopify_scraper import host_resolver, http_client
 from api.storage import page_store
-from fakes import fake_llm, make_fake_search
 from workflow.graph import create_graph
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -264,10 +264,8 @@ def test_scrape_shopify_generates_through_the_graph(client):
         }
     )
     shop_img = f"<img src='{SHOP_IMAGE}' alt='Black smart mug'>"
-    full_page = "<!DOCTYPE html><html><body>%s%s</body></html>" % (
-        shop_img,
-        "".join(f"<section id='{s['id']}'></section>" for s in SECTIONS.values()),
-    )
+    sections = "".join(f"<section id='{s['id']}'></section>" for s in SECTIONS.values())
+    full_page = f"<!DOCTYPE html><html><body>{shop_img}{sections}</body></html>"
     llm = use_graph(*[IMAGE_REPLY] * 6, json.dumps(COPY), full_page)
 
     response = client.post(

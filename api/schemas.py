@@ -1,22 +1,23 @@
+from typing import Literal
+
 from pydantic import BaseModel, Field, HttpUrl
-from typing import List, Optional, Literal
 
 
 class LandingPageParams(BaseModel):
-    images: List[HttpUrl] = Field(..., min_length=1, max_length=6)
+    images: list[HttpUrl] = Field(..., min_length=1, max_length=6)
     product_name: str
     product_price: float
     currency: Literal["DZD", "EUR", "USD"]
-    is_hero: Optional[bool] = False
-    is_feature: Optional[bool] = False
-    is_testimonials: Optional[bool] = False
-    is_pricing: Optional[bool] = False
-    is_contact: Optional[bool] = False
-    is_footer: Optional[bool] = False
-    marketing_angle: Optional[str] = None
+    is_hero: bool | None = False
+    is_feature: bool | None = False
+    is_testimonials: bool | None = False
+    is_pricing: bool | None = False
+    is_contact: bool | None = False
+    is_footer: bool | None = False
+    marketing_angle: str | None = None
     language: str = "ar"
 
 
 class ShopifyURLRequest(BaseModel):
     url: HttpUrl
-    marketing_angle: Optional[str] = None
+    marketing_angle: str | None = None

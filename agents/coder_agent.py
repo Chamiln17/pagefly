@@ -1,7 +1,7 @@
 # agents/coder_agent.py: turns the layout and generated copy into one HTML page
 
 import json
-from typing import Any, Dict, List
+from typing import Any
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -9,7 +9,6 @@ from langchain_core.runnables import RunnableLambda
 
 from core.html_document import extract_html_document
 from core.state import format_price
-
 
 codegen_system_prompt = """You are an expert frontend developer. Your task is to generate a complete, single-file HTML page based on a structural definition and provided text content (copy).
 
@@ -34,11 +33,11 @@ codegen_system_prompt = """You are an expert frontend developer. Your task is to
 
 
 def build_coder_messages(
-    fixed_layout: Dict,
-    generated_copy: Dict,
+    fixed_layout: dict,
+    generated_copy: dict,
     price: str = "not provided",
-    images: List[Dict] | None = None,
-) -> List:
+    images: list[dict] | None = None,
+) -> list:
     """Builds the message list for the coder agent LLM. `images` holds one
     {"src", "alt"} per product image."""
     image_lines = "\n".join(
@@ -80,7 +79,7 @@ def get_codegen_agent_runnable(llm: BaseChatModel):
     """Runnable taking the graph state and returning the page HTML; raises when
     the layout or copy has no 'sections' or the model fails."""
 
-    def generate_html(state: Dict) -> str:
+    def generate_html(state: dict) -> str:
         fixed_layout = state.get("fixed_layout_input")
         generated_copy = state.get("generated_copy")
         if not isinstance(fixed_layout, dict) or "sections" not in fixed_layout:

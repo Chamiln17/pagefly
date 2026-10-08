@@ -1,3 +1,1 @@
-from typing import Dict
-
-page_store: Dict[str, str] = {}
+page_store: dict[str, str] = {}

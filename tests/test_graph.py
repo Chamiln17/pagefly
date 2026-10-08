@@ -1,8 +1,8 @@
 import json
 
+from fakes import fake_llm, make_fake_search
 from langchain_core.messages import AIMessage
 
-from fakes import fake_llm, make_fake_search
 from workflow.graph import create_graph
 
 LAYOUT = {
@@ -209,8 +209,10 @@ def test_check_reports_a_page_without_a_product_image():
     )
 
     assert state["check_problems"] == [
-        "No product image shown: add an <img> whose src is one of: "
-        "https://example.com/mug.jpg"
+        (
+            "No product image shown: add an <img> whose src is one of: "
+            "https://example.com/mug.jpg"
+        )
     ]
     assert state["error_message"]
 
@@ -333,7 +335,7 @@ def test_page_still_broken_after_repair_ends_in_error_without_a_second_pass():
 
 def test_failing_repair_agent_ends_the_run_with_an_error():
     # The scripted model has no reply left for the repair call, so it raises.
-    state, llm = run_with_replies(BROKEN_HTML)
+    state, _llm = run_with_replies(BROKEN_HTML)
 
     assert state["repair_passes"] == 1
     assert state["error_message"].startswith("Error in Repair Node")
