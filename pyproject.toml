@@ -11,14 +11,13 @@ dependencies = [
     "pydantic>=2.5.3",
     "httpx>=0.27.0",
     "python-dotenv>=1.0.1",
-    # Capped to the 0.3 line the hackathon code was written against.
-    "langchain>=0.3.23,<0.4",
-    "langchain-core>=0.3.54,<0.4",
-    "langchain-openai>=0.3.14,<0.4",
-    "langchain-community>=0.3.21,<0.4",
-    "langgraph>=0.3.31,<1",
+    "langchain>=1.4.3",
+    "langchain-core>=1.6.7",
+    "langchain-openai>=1.6.7",
+    "langgraph>=1.2.14",
     "openai>=1.75.0",
     "beautifulsoup4>=4.15.0",
+    "langchain-tavily>=0.2.18",
 ]
 
 [project.optional-dependencies]

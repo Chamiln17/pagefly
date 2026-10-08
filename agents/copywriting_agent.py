@@ -1,16 +1,17 @@
 # agents/copywriting_agent.py
 
-import os
 import json
-from dotenv import load_dotenv
+import logging
 from typing import Dict
 
-from langchain_openai import ChatOpenAI
+from langchain_core.language_models import BaseChatModel
 from langchain_core.prompts import PromptTemplate
 
 # Using JsonOutputParser to get structured output
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.runnables import RunnableLambda
+
+logger = logging.getLogger(__name__)
 
 # --- Prompt Template ---
 
@@ -126,7 +127,7 @@ copywriting_prompt = PromptTemplate(
 )
 
 
-def invoke_copywriting_logic(llm: ChatOpenAI, inputs: Dict) -> Dict:
+def invoke_copywriting_logic(llm: BaseChatModel, inputs: Dict) -> Dict:
     """Prepares input and invokes the copywriting LLM chain."""
     # 1. Determine Marketing Context
     marketing_context = inputs.get("marketing_angle_input")
@@ -163,13 +164,17 @@ def invoke_copywriting_logic(llm: ChatOpenAI, inputs: Dict) -> Dict:
         generated_copy = copywriting_chain.invoke(chain_input)
         # Ensure the output is a dictionary
         if not isinstance(generated_copy, dict):
-            print(f"Warning: Copywriting output was not a dict: {type(generated_copy)}")
+            logger.warning(
+                f"Warning: Copywriting output was not a dict: {type(generated_copy)}"
+            )
             # Attempt to parse if it looks like a JSON string
             if isinstance(generated_copy, str):
                 try:
                     generated_copy = json.loads(generated_copy)
                 except json.JSONDecodeError:
-                    print("Error: Failed to parse copywriting output string as JSON.")
+                    logger.error(
+                        "Error: Failed to parse copywriting output string as JSON."
+                    )
                     return {
                         "error": "Copywriting output format error",
                         "raw_output": generated_copy,
@@ -181,14 +186,11 @@ def invoke_copywriting_logic(llm: ChatOpenAI, inputs: Dict) -> Dict:
                 }
         return generated_copy
     except Exception as e:
-        print(f"Error during copywriting chain invocation: {e}")
-        import traceback
-
-        traceback.print_exc()
+        logger.exception("Copywriting chain invocation failed")
         return {"error": f"LLM invocation failed: {e}"}
 
 
-def get_copywriting_agent_runnable(llm: ChatOpenAI):
+def get_copywriting_agent_runnable(llm: BaseChatModel):
     """Creates the runnable for the copywriting agent."""
 
     # This agent needs multiple inputs from the state dictionary
@@ -197,77 +199,3 @@ def get_copywriting_agent_runnable(llm: ChatOpenAI):
         return invoke_copywriting_logic(llm, state_dict)
 
     return RunnableLambda(_wrapped_invoke)
-
-
-if __name__ == "__main__":
-    load_dotenv()
-    if not os.environ.get("OPENAI_API_KEY"):
-        print("Error: OPENAI_API_KEY not found.")
-    else:
-        # Use a capable LLM for copywriting
-        test_llm = ChatOpenAI(model="gpt-4o", temperature=0.7)
-        copywriting_runnable = get_copywriting_agent_runnable(test_llm)
-        # --- Sample Inputs (Mimicking State) ---
-        sample_state = {
-            "marketing_angle_input": "Focus on the 'always perfect temperature' benefit for busy professionals who hate cold coffee.",
-            # "marketing_strategy": {"summary": ...}, # Example if research was used instead
-            "product_image_analysis": {
-                "description": "A sleek, modern-looking coffee mug, possibly black or metallic.",
-                "visual_features": [
-                    "Minimalist design",
-                    "LED indicator light",
-                    "Charging coaster",
-                ],
-                "overall_style": "Modern, premium, techy",
-                "inferred_audience": "Tech enthusiasts, professionals",
-            },
-            "fixed_layout_input": {
-                # Ensure this structure matches what you expect the user/system to provide
-                "sections": [
-                    {
-                        "id": "hero",
-                        "type": "hero_banner",
-                        "required_copy": ["headline", "subheadline", "button_text"],
-                    },
-                    {
-                        "id": "problem",
-                        "type": "text_section",
-                        "required_copy": ["headline", "body_text"],
-                    },
-                    {
-                        "id": "solution",
-                        "type": "text_with_image",
-                        "required_copy": ["headline", "body_text"],
-                    },
-                    # Example for features needing multiple items
-                    {
-                        "id": "features",
-                        "type": "feature_list_3_items",
-                        "required_copy_per_item": ["title", "description"],
-                    },
-                    {
-                        "id": "cta",
-                        "type": "call_to_action_simple",
-                        "required_copy": ["headline", "button_text"],
-                    },
-                ]
-            },
-            "language": "arabic",  # Example language input
-        }
-        # --- End Sample Inputs ---
-
-        print("--- Testing Copywriting Agent ---")
-        print("Sample State (Input):")
-        # Use default=str for potential non-serializable items if any, though should be fine here
-        print(json.dumps(sample_state, indent=2, default=str))
-
-        try:
-            copy_result = copywriting_runnable.invoke(sample_state)
-            print("\nOutput (Generated Copy JSON):")
-            # Result should ideally be a dictionary parsed by JsonOutputParser
-            print(json.dumps(copy_result, indent=2, ensure_ascii=False))
-        except Exception as e:
-            print(f"An error occurred: {e}")
-            import traceback
-
-            traceback.print_exc()

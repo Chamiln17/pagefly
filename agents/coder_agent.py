@@ -1,16 +1,17 @@
 # agents/coder_agent.py (Revised for Robustness with Fixed Layout + Generated Copy)
 
-import os
 import json
-from dotenv import load_dotenv
+import logging
 from typing import Dict, List
 
-from langchain_openai import ChatOpenAI
+from langchain_core.language_models import BaseChatModel
 
 # Using PromptTemplate is less direct here since we build messages manually
 # from langchain_core.prompts import PromptTemplate
 from langchain_core.runnables import RunnableLambda
 from langchain_core.messages import HumanMessage, SystemMessage
+
+logger = logging.getLogger(__name__)
 
 # --- System Prompt ---
 # Defines the core role and requirements
@@ -85,7 +86,7 @@ def build_coder_messages(
                     }
                 )
             else:
-                print(
+                logger.warning(
                     f"Warning: Invalid inspiration image URL format provided to coder: {inspiration_image_url}"
                 )
                 user_content_parts.append(
@@ -95,7 +96,7 @@ def build_coder_messages(
                     }
                 )
         except Exception as img_err:
-            print(
+            logger.error(
                 f"Warning: Error processing inspiration image URL {inspiration_image_url}: {img_err}"
             )
             user_content_parts.append(
@@ -122,7 +123,7 @@ def build_coder_messages(
 # --- Core Logic Function ---
 
 
-def invoke_coder_logic(llm: ChatOpenAI, inputs: Dict) -> str:
+def invoke_coder_logic(llm: BaseChatModel, inputs: Dict) -> str:
     """Prepares inputs and invokes the coder LLM chain."""
 
     fixed_layout = inputs.get("fixed_layout_input")
@@ -134,14 +135,16 @@ def invoke_coder_logic(llm: ChatOpenAI, inputs: Dict) -> str:
 
     # Basic validation
     if not fixed_layout or not generated_copy:
-        print("Error: Coder agent missing fixed_layout_input or generated_copy.")
+        logger.error("Error: Coder agent missing fixed_layout_input or generated_copy.")
         return "<!-- Error: Missing required layout or copy input. -->"
     # Add more specific validation if needed (e.g., check if 'sections' key exists)
     if not isinstance(fixed_layout, dict) or not isinstance(generated_copy, dict):
-        print("Error: Coder agent received invalid input types for layout or copy.")
+        logger.error(
+            "Error: Coder agent received invalid input types for layout or copy."
+        )
         return "<!-- Error: Invalid input type for layout or copy. -->"
     if "sections" not in fixed_layout or "sections" not in generated_copy:
-        print(
+        logger.error(
             "Error: Coder input 'sections' key missing in fixed_layout or generated_copy."
         )
         return "<!-- Error: Missing 'sections' key in layout or copy input. -->"
@@ -156,13 +159,13 @@ def invoke_coder_logic(llm: ChatOpenAI, inputs: Dict) -> str:
         if not generated_html or not generated_html.strip().lower().startswith(
             "<!doctype html>"
         ):
-            print(
+            logger.warning(
                 f"Warning: Coder output doesn't start with <!DOCTYPE html>:\n{generated_html[:200]}..."
             )
             # Return the potentially flawed output anyway, or an error comment
             # return f"<!-- Error: Generated output may not be valid HTML -->\n{generated_html}"
     except Exception as e:
-        print(f"Error invoking coder LLM: {e}")
+        logger.error(f"Error invoking coder LLM: {e}")
         generated_html = f"<!-- Error during code generation: {e} -->"
 
     return generated_html
@@ -171,13 +174,13 @@ def invoke_coder_logic(llm: ChatOpenAI, inputs: Dict) -> str:
 # --- Runnable Definition ---
 
 
-def get_codegen_agent_runnable(llm: ChatOpenAI):
+def get_codegen_agent_runnable(llm: BaseChatModel):
     """Creates the runnable for the HTML/CSS generation agent."""
 
     def _wrapped_invoke(state_dict: Dict):
         # Ensure required keys are present in the state dictionary before calling
         if "fixed_layout_input" not in state_dict or "generated_copy" not in state_dict:
-            print(
+            logger.error(
                 "Error: State missing 'fixed_layout_input' or 'generated_copy' for coder agent."
             )
             # Return error HTML directly, don't invoke logic
@@ -187,123 +190,3 @@ def get_codegen_agent_runnable(llm: ChatOpenAI):
         return invoke_coder_logic(llm, state_dict)
 
     return RunnableLambda(_wrapped_invoke)
-
-
-# --- Testing Block ---
-# (Keep the same testing block from the previous version, it should work with this structure)
-if __name__ == "__main__":
-    load_dotenv()
-    if not os.environ.get("OPENAI_API_KEY"):
-        print("Error: OPENAI_API_KEY not found.")
-    else:
-        test_llm = ChatOpenAI(model="gpt-4o", temperature=0.2)
-        codegen_runnable = get_codegen_agent_runnable(test_llm)
-
-        # --- Sample Inputs (Mimicking State) ---
-        sample_state = {
-            "fixed_layout_input": {
-                "inspiration_image": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQt0CiX0sVdMAHRACvWpx1EqZNAbqIdvuT5nHsDWnOwjK33PjGdb4nyxGzXYDxzSAjYXjw&usqp=CAU",
-                "sections": [
-                    {
-                        "id": "hero",
-                        "type": "hero_banner",
-                        "required_copy": ["headline", "subheadline", "button_text"],
-                    },
-                    {
-                        "id": "problem",
-                        "type": "text_section",
-                        "required_copy": ["headline", "body_text"],
-                    },
-                    {
-                        "id": "features",
-                        "type": "feature_list_3_items",
-                        "required_copy_per_item": ["title", "description"],
-                    },
-                    {
-                        "id": "cta",
-                        "type": "call_to_action_simple",
-                        "required_copy": ["headline", "button_text"],
-                    },
-                ],
-            },
-            "generated_copy": {
-                "sections": [
-                    {
-                        "id": "hero",
-                        "type": "hero_banner",
-                        "copy": {
-                            "headline": "Never Sip Cold Coffee Again!",
-                            "subheadline": "Keep your drink perfectly hot for hours with the Ember Smart Mug.",
-                            "button_text": "Discover Ember",
-                        },
-                    },
-                    {
-                        "id": "problem",
-                        "type": "text_section",
-                        "copy": {
-                            "headline": "Tired of Cold Coffee?",
-                            "body_text": "Your busy day demands focus. Don't let lukewarm coffee ruin your flow. Standard mugs just don't keep up.",
-                        },
-                    },
-                    {
-                        "id": "features",
-                        "type": "feature_list_3_items",
-                        "items": [
-                            {
-                                "copy": {
-                                    "title": "Precision Temperature Control",
-                                    "description": "Set your ideal temperature via the Ember app.",
-                                }
-                            },
-                            {
-                                "copy": {
-                                    "title": "Extended Battery Life",
-                                    "description": "Enjoy hours of perfect warmth on a single charge.",
-                                }
-                            },
-                            {
-                                "copy": {
-                                    "title": "Sleek & Durable Design",
-                                    "description": "Looks great on any desk and built to last.",
-                                }
-                            },
-                        ],
-                    },
-                    {
-                        "id": "cta",
-                        "type": "call_to_action_simple",
-                        "copy": {
-                            "headline": "Upgrade Your Coffee Experience",
-                            "button_text": "Shop Smart Mugs",
-                        },
-                    },
-                ]
-            },
-            # product_image_url could also be a top-level key if preferred state structure
-        }
-        # --- End Sample Inputs ---
-
-        print("--- Testing Coder Agent (Revised) ---")
-        print("Sample State (Input):")
-        print(json.dumps(sample_state, indent=2, default=str))
-
-        try:
-            generated_html_output = codegen_runnable.invoke(sample_state)
-            print("\nOutput (Generated HTML):")
-            # Add a basic check before printing/saving
-            if isinstance(
-                generated_html_output, str
-            ) and generated_html_output.strip().lower().startswith("<!doctype html>"):
-                print(generated_html_output)
-                with open("test_coder_output_revised.html", "w", encoding="utf-8") as f:
-                    f.write(generated_html_output)
-                print("\n--- Saved output to test_coder_output_revised.html ---")
-            else:
-                print("\n--- Output was not valid HTML ---")
-                print(generated_html_output)
-
-        except Exception as e:
-            print(f"An error occurred: {e}")
-            import traceback
-
-            traceback.print_exc()
