@@ -1,105 +1,128 @@
-# Astro-Page-Agents   
-**1. Functional Overview**  
-   
-- **Agent 1:** Landing page layout researcher (studies trends, composes layout proposals)  
-- **Agent 2:** Generates valid HTML, CSS, JS according to Agent 1's output (AI coder)  
-- **Agent 3:** Evaluates and enhances the generated code (quality, improvements, accessibility)  
-- **Optional Agent(s):** Suggests sections & togglers, UX improvements  
-   
----  
-   
-**2. Technology Stack**  
-   
-- **Backend:** Python (with FastAPI or Flask for APIs)  
-- **Frontend:** React.js (for user interaction, previewing, and editing)  
-- **AI Frameworks:** LangChain, LangGraph, OpenAI/Anthropic APIs  
-- **Orchestration:** LangGraph (for agent workflow definition)  
-- **Database:** PostgreSQL/MongoDB (for user/session/content persistence)  
-- **Storage:** AWS S3 (for assets, images)  
-- **Deployment:** Docker, Vercel/Heroku/AWS  
-- **Collaboration/Prompt Management:** Weights & Biases, PromptLayer (optional)  
-   
----  
-   
-**3. Detailed Execution Plan**  
-   
-### a. Design the Agent Workflow Graph  
-   
-You can visualize your workflow as a directed acyclic graph (DAG):  
-   
-```  
-User Inputs Product Info  
-        |  
-   [Agent 1: Layout Research]  
-        |  
-   [Agent 2: Code Generator]  
-        |  
-   [Agent 3: Code Evaluator/Enhancer]  
-        |  
-[Optional Agent: Section/UX Suggestions]  
-        |  
-       Output to User (with editing capabilities)  
-```  
-   
-Implement this workflow in **LangGraph**, which allows you to define nodes (agents) and transitions (data passing and logic).  
-   
-### b. Agent Design  
-   
-- **Agent 1 (`layout-research-agent`):**  
-    - Input: Product description, target audience, preferences  
-    - Output: JSON specification of landing page (sections, order, features)  
-    - Implementation: Large Language Model (GPT-4, Claude, etc.) with retrieval-augmented techniques (use tools + embed recent landing page trends/pages)  
-   
-- **Agent 2 (`code-generation-agent`):**  
-    - Input: JSON specification from Agent 1  
-    - Output: React component code, or optionally plain HTML/CSS/JS  
-    - Implementation: LLM specialized in code generation; provide format examples and enforce output schema  
-   
-- **Agent 3 (`evaluation-enhancement-agent`):**  
-    - Input: Generated code from Agent 2  
-    - Output: Improved code (fixes, accessibility, performance, etc.), suggestions if code is weak  
-    - Implementation: LLM with code critique capabilities. Optionally, run automated linting/tests.  
-   
-- **Agent 4 - UX/Sections Suggestor (Optional):**  
-    - Input: Current content/code  
-    - Output: List of suggestions (add testimonial, hero section, toggler for FAQs, etc.) with rationale and mini-implementations  
-    - Implementation: LLM with prompt library of best UX patterns  
-   
-- **User Feedback/Edits:**  
-    - Allow inline edits, which can trigger another pass through code generation/evaluation if desired.  
-   
-### c. Building the Agents  
-   
-- Use **LangChain** agents, each with their own prompt templates, tools, retrievers, and chains.  
-- Implement the full workflow and data passing in **LangGraph**. Each agent outputs to the next.  
-   
-### d. Frontend  
-   
-- User inputs product info, preferences, brand guidelines  
-- Displays generated landing page. Inline code and content editor.  
-- Suggestions/sections displayed contextually.  
-   
-### e. Infra & Orchestration  
-   
-- Run agents as FastAPI services or serverless functions.  
-- Use queues/events (Celery, AWS SQS) to manage
-## Usage 
-1. install uv: https://docs.astral.sh/uv/getting-started/installation/#standalone-installer
-2. run
-   ```shell
-   uv sync --all-extras --dev
-   ```
+# PageFly
 
-### Lint (check & fix)
-1. open a new terminal in the root of this repo and run:
+PageFly turns a product's name, price and images into a single-file HTML landing page. A LangGraph workflow passes the product through a chain of LLM agents: image analysis, Marketing Angle research, copywriting and HTML generation. A check step then validates the page, and a repair agent fixes it once if the check fails. A FastAPI service runs the graph and serves the generated pages.
 
-```shell
-uv run ruff check --fix
-uv run ruff format
-uv run mypy .
+This repository is the backend only.
+
+## Hackathon origin
+
+PageFly was built in 24 hours (18–19 April 2025) at Maystro Delivery's internal Agentic AI Hackathon to showcase agentic AI. The team of four placed 2nd.
+
+The `hackathon-2025-04-19` tag marks the 24-hour version. The repair agent, the check step, the tests, the provider configuration and the cleanup were added after the hackathon.
+
+## Team
+
+- **Chamel Nadir Bouacha**: designed the LangGraph workflow and built the agents (image analysis, Marketing Angle research with Tavily, copywriting, HTML generation).
+- **Feninekh Chaima**: built the FastAPI endpoints and the Shopify scraper.
+- **TODO: name of the fourth teammate**: built the frontend, which is not in this repository.
+
+## How it works
+
+The graph is built by `create_graph` in `workflow/graph.py`. This diagram is generated from it:
+
+```mermaid
+graph TD;
+	__start__([__start__]):::first
+	image_analyzer(image_analyzer)
+	marketing_researcher(marketing_researcher)
+	copywriter(copywriter)
+	html_generator(html_generator)
+	checker(checker)
+	repairer(repairer)
+	finish(finish)
+	__end__([__end__]):::last
+	__start__ --> image_analyzer;
+	checker -.-> finish;
+	checker -. repair .-> repairer;
+	copywriter --> html_generator;
+	html_generator --> checker;
+	image_analyzer -. skip_research .-> copywriter;
+	image_analyzer -. run_research .-> marketing_researcher;
+	marketing_researcher --> copywriter;
+	repairer --> checker;
+	finish --> __end__;
+	classDef first fill-opacity:0
+	classDef last fill:#bfb6fc
 ```
 
-### Run tests 
-1. open a new terminal in the root of this repo and run:
+- **image_analyzer** describes each product image with the vision-capable chat model.
+- **marketing_researcher** runs only when the request has no Marketing Angle. It searches the web with Tavily and returns a recommended angle.
+- **copywriter** writes the copy for each section of the layout.
+- **html_generator** turns the layout, copy and image descriptions into one HTML file.
+- **checker** verifies that the HTML parses, that every layout section has an element with the section's id, and that every `<img>` has alt text.
+- **repairer** gets the page and the check's problem list and returns a fixed page. It runs at most once; the page is then checked again.
+- **finish** fails the run if problems remain.
+
+A node that fails writes `error_message`, and the nodes after it skip their work.
+
+## Setup
+
+Install [uv](https://docs.astral.sh/uv/), then from the repository root:
+
+```shell
+uv sync --all-extras --dev
+```
+
+### Environment variables
+
+Copy `.env.example` to `.env` and fill in the keys.
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `LLM_API_KEY` | none | API key for the OpenAI-compatible provider |
+| `LLM_BASE_URL` | `https://openrouter.ai/api/v1` | Provider endpoint |
+| `LLM_MODEL` | `deepseek/deepseek-v4.1-flash` | Chat model; it must accept image input and tool calls |
+| `LLM_MAX_TOKENS` | `8192` | Maximum completion tokens per call |
+| `TAVILY_API_KEY` | none | Web search for Marketing Angle research; needed only when no angle is given |
+| `CORS_ORIGINS` | `http://localhost:3000,http://localhost:5173` | Comma-separated origins allowed to call the API |
+
+## Running the API
+
+```shell
+uv run --env-file .env uvicorn api.main:app
+```
+
+The API does not read `.env` by itself, so pass it with `--env-file`. The app starts without API keys; the graph is built on the first generation request.
+
+```shell
+curl http://127.0.0.1:8000/
+```
+
+returns `{"Hello":"World"}`.
+
+Endpoints:
+
+- `POST /generate` takes the product (`product_name`, `product_price`, `currency` of `DZD`, `EUR` or `USD`, 1 to 6 `images` URLs), optional `marketing_angle`, `language` (default `ar`) and the section switches `is_hero`, `is_feature`, `is_testimonials`, `is_pricing`, `is_contact`, `is_footer`. It runs the graph and returns `{"preview_url": "/preview/<key>"}`, or 502 with the error when the graph fails.
+- `POST /scrape-shopify` takes a Shopify product `url` and an optional `marketing_angle`, scrapes the product, then generates a page with all sections enabled.
+- `GET /preview/{key}` serves a generated page.
+
+## Smoke run
+
+`scripts/smoke_run.py` runs the real graph once on a sample product, writes the page to `out/smoke_page.html` and prints the route, check result, repair passes and token usage. It makes paid API calls and reads `.env` itself.
+
+```shell
+uv run python scripts/smoke_run.py --help
+```
+
+Pass `--angle "<text>"` to skip research, so no `TAVILY_API_KEY` is needed.
+
+One recorded run on 2026-10-08 with `deepseek/deepseek-v4.1-flash` through OpenRouter took the research route, passed the check with 0 repair passes, used 19,015 tokens (about $0.01 at list price) and took 62 seconds.
+
+## Tests and lint
+
+The tests run offline with a scripted fake chat model and a fake search tool; they need no API keys.
+
 ```shell
 uv run pytest
+uv run ruff check .
+uv run ruff format --check .
+```
+
+## Known limits
+
+- Generated pages live in an in-memory dict and are lost when the server stops.
+- Generation is synchronous: a request waits for the whole graph, about a minute.
+- The Shopify scraper is best-effort: its selectors fit a few Shopify themes, and it has no tests.
+- The frontend is not in this repository.
+- The check step is structural only (section ids, alt text, parsing). It does not judge copy or design quality.
+- A generated page may contain no product image: the recorded smoke run produced a page without an `<img>`.
