@@ -1,16 +1,23 @@
 import importlib
 import json
+from pathlib import Path
 
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 
 import api.main
 from api.generator import SECTIONS, get_graph
-from api.scraper.shopify_scraper import ScrapeError
+from api.scraper.shopify_scraper import http_client
 from api.storage import page_store
 from fakes import fake_llm, make_fake_search
 from workflow.graph import create_graph
 
+FIXTURES = Path(__file__).parent / "fixtures"
+PRODUCT_JSON = (FIXTURES / "shopify_product.json").read_bytes()
+PRODUCT_HTML = (FIXTURES / "shopify_product.html").read_bytes()
+SHOP_URL = "https://shop.example.com/products/smart-mug?variant=808950811"
+SHOP_IMAGE = "https://cdn.shopify.com/s/files/1/0001/products/mug-1.jpg"
 IMAGE_REPLY = '{"visual_summary": "A black smart mug on a desk."}'
 COPY = {
     "sections": [{"id": "hero", "type": "hero", "copy": {"headline": "Hot coffee"}}]
@@ -134,16 +141,25 @@ def test_failing_page_check_returns_502_and_stores_nothing(client):
     assert page_store == {}
 
 
-def test_scrape_shopify_returns_422_when_scraping_finds_too_little(client, monkeypatch):
-    async def failing_scrape(url):
-        raise ScrapeError("Insufficient product data extracted.")
+def serve_shop(routes):
+    """Point the real scraper at a fake shop; `routes` maps a path to (status, body)."""
 
-    monkeypatch.setattr("api.routes.scrape_shopify_data", failing_scrape)
+    def handler(request):
+        status, body = routes.get(request.url.path, (404, b"Not Found"))
+        return httpx.Response(status, content=body)
+
+    async def fake_shop_client():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as c:
+            yield c
+
+    api.main.app.dependency_overrides[http_client] = fake_shop_client
+
+
+def test_scrape_shopify_returns_422_when_scraping_finds_too_little(client):
+    serve_shop({"/products/smart-mug": (200, b"<html><body>Sold out</body></html>")})
     llm = use_graph()
 
-    response = client.post(
-        "/scrape-shopify", json={"url": "https://shop.example.com/p"}
-    )
+    response = client.post("/scrape-shopify", json={"url": SHOP_URL})
 
     assert response.status_code == 422
     assert response.json()["detail"] == "Insufficient product data extracted."
@@ -151,30 +167,28 @@ def test_scrape_shopify_returns_422_when_scraping_finds_too_little(client, monke
     assert llm.prompts == []
 
 
-def test_scrape_shopify_generates_through_the_graph(client, monkeypatch):
-    async def fake_scrape(url):
-        return {
-            "product_name": "Smart Mug",
-            "product_price": 4500.0,
-            "currency": "DZD",
-            "images": ["https://example.com/mug.jpg"],
+def test_scrape_shopify_generates_through_the_graph(client):
+    serve_shop(
+        {
+            "/products/smart-mug.json": (200, PRODUCT_JSON),
+            "/products/smart-mug": (200, PRODUCT_HTML),
         }
-
-    monkeypatch.setattr("api.routes.scrape_shopify_data", fake_scrape)
+    )
+    shop_img = f"<img src='{SHOP_IMAGE}' alt='Black smart mug'>"
     full_page = "<!DOCTYPE html><html><body>%s%s</body></html>" % (
-        IMG,
+        shop_img,
         "".join(f"<section id='{s['id']}'></section>" for s in SECTIONS.values()),
     )
-    llm = use_graph(IMAGE_REPLY, json.dumps(COPY), full_page)
+    llm = use_graph(*[IMAGE_REPLY] * 6, json.dumps(COPY), full_page)
 
     response = client.post(
-        "/scrape-shopify",
-        json={"url": "https://shop.example.com/p", "marketing_angle": "Stay warm"},
+        "/scrape-shopify", json={"url": SHOP_URL, "marketing_angle": "Stay warm"}
     )
 
     assert response.status_code == 200
     assert client.get(response.json()["preview_url"]).text == full_page
     assert "Stay warm" in copywriter_prompt(llm)
+    assert "4700.0 DZD" in coder_prompt(llm)
 
 
 def preflight(app, origin):

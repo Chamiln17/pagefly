@@ -11,13 +11,13 @@ uv sync --all-extras --dev
 uv run pytest                                  # offline, no keys needed
 uv run pytest tests/test_graph.py::test_name   # single test
 uv run ruff check . && uv run ruff format --check .
-uv run mypy .                                  # not gating
+uv run mypy .                                  # gates CI
 uv lock --check                                # uv.lock matches pyproject.toml
 uv run --env-file .env uvicorn api.main:app    # API
 uv run python scripts/smoke_run.py --help      # real run makes PAID calls; never run it without authorisation
 ```
 
-CI (`.github/workflows/ci.yml`) runs sync, lock check, pytest and both ruff checks on every push and pull request.
+CI (`.github/workflows/ci.yml`) runs the lock check, sync, pytest, ruff check, ruff format --check and mypy on every push and pull request; all must pass.
 
 ## Environment gotchas
 

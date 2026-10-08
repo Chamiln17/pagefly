@@ -1,7 +1,6 @@
 # agents/coder_agent.py: turns the layout and generated copy into one HTML page
 
 import json
-import logging
 from typing import Any, Dict, List
 
 from langchain_core.language_models import BaseChatModel
@@ -11,7 +10,6 @@ from langchain_core.runnables import RunnableLambda
 from core.html_document import extract_html_document
 from core.state import format_price
 
-logger = logging.getLogger(__name__)
 
 codegen_system_prompt = """You are an expert frontend developer. Your task is to generate a complete, single-file HTML page based on a structural definition and provided text content (copy).
 
@@ -103,10 +101,6 @@ def get_codegen_agent_runnable(llm: BaseChatModel):
                 fixed_layout, generated_copy, format_price(state), images
             )
         )
-        reply = str(response.content)
-        html = extract_html_document(reply)
-        if html != reply.strip():
-            logger.warning("Dropped text around the HTML document in the coder reply")
-        return html
+        return extract_html_document(str(response.content), "coder")
 
     return RunnableLambda(generate_html)

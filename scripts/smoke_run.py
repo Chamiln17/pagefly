@@ -7,10 +7,8 @@ Usage: uv run python scripts/smoke_run.py [--model MODEL] [--angle TEXT] [--imag
 import argparse
 import logging
 import os
-import subprocess
-import tempfile
-import time
-from collections.abc import Callable, Mapping
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
@@ -18,10 +16,12 @@ from dotenv import load_dotenv
 from langchain_core.callbacks import BaseCallbackHandler, get_usage_metadata_callback
 from langchain_core.language_models import BaseChatModel
 from langchain_core.outputs import ChatGeneration, LLMResult
+from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import BaseTool, tool
 
 from agents.repair_agent import get_repair_runnable
 from core.llm import make_llm, make_search_tool
+from scripts.screenshot import BROWSER_CANDIDATES, find_browser, take_screenshot
 from workflow.graph import check_page, create_graph, should_run_marketing_research
 
 PRODUCT_NAME = "Ceramic Coffee Mug"
@@ -62,11 +62,9 @@ def run_smoke(
         "fixed_layout_input": LAYOUT,
         "language": language,
     }
-    costs = CostCallback()
-    with get_usage_metadata_callback() as usage:
-        final = create_graph(llm, search_tool).invoke(
-            state, config={"callbacks": [costs]}
-        )
+    usage: list[str] = []
+    with metered(usage) as config:
+        final = create_graph(llm, search_tool).invoke(state, config=config)
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(final.get("generated_html") or "", encoding="utf-8")
@@ -83,7 +81,7 @@ def run_smoke(
             f"repair passes: {final.get('repair_passes') or 0}",
             f"error: {final.get('error_message') or 'none'}",
             f"html: {out_path}",
-            *usage_lines(usage.usage_metadata, costs),
+            *usage,
         ]
     )
 
@@ -93,11 +91,10 @@ def run_repair_demo(llm: BaseChatModel) -> str:
     model call), checks the result and returns a summary."""
     image_urls = [IMAGE_URL]
     before = check_page(REPAIR_DEMO_HTML, LAYOUT, image_urls)
-    costs = CostCallback()
-    with get_usage_metadata_callback() as usage:
+    usage: list[str] = []
+    with metered(usage) as config:
         repaired = get_repair_runnable(llm).invoke(
-            {"html": REPAIR_DEMO_HTML, "problems": before},
-            config={"callbacks": [costs]},
+            {"html": REPAIR_DEMO_HTML, "problems": before}, config=config
         )
     after = check_page(repaired, LAYOUT, image_urls)
     return "\n".join(
@@ -106,9 +103,19 @@ def run_repair_demo(llm: BaseChatModel) -> str:
             *(f"  {p}" for p in before),
             "after: passed" if not after else "after:",
             *(f"  {p}" for p in after),
-            *usage_lines(usage.usage_metadata, costs),
+            *usage,
         ]
     )
+
+
+@contextmanager
+def metered(lines: list[str]) -> Iterator[RunnableConfig]:
+    """Yields the config that meters the model calls inside the block; on exit,
+    appends the token and cost lines to `lines`."""
+    costs = CostCallback()
+    with get_usage_metadata_callback() as usage:
+        yield {"callbacks": [costs]}
+    lines += usage_lines(usage.usage_metadata, costs)
 
 
 def usage_lines(usage_metadata: dict, costs: "CostCallback") -> list[str]:
@@ -141,77 +148,6 @@ class CostCallback(BaseCallbackHandler):
                     usage = gen.message.response_metadata.get("token_usage") or {}
                     if usage.get("cost") is not None:
                         self.costs.append(usage["cost"])
-
-
-BROWSER_CANDIDATES = [
-    Path(r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"),
-    Path(r"C:\Program Files\Microsoft\Edge\Application\msedge.exe"),
-    Path(r"C:\Program Files\Google\Chrome\Application\chrome.exe"),
-    Path("/usr/bin/google-chrome"),
-    Path("/usr/bin/chromium"),
-    Path("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"),
-]
-
-
-def find_browser(env: Mapping[str, str], candidates: list[Path]) -> str | None:
-    """BROWSER_PATH if set, else the first installed Chromium-family browser."""
-    if env.get("BROWSER_PATH"):
-        return env["BROWSER_PATH"]
-    return next((str(p) for p in candidates if p.is_file()), None)
-
-
-def take_screenshot(
-    html_path: Path,
-    browser: str | None,
-    launch: Callable[..., Any] = subprocess.Popen,
-    settle: float = 1.0,
-    timeout: float = 120,
-) -> str:
-    """Renders html_path with a headless browser into a PNG beside it.
-
-    Waits for the PNG rather than for the browser: on pages whose network
-    requests hang (web fonts), Edge writes the PNG and then keeps running."""
-    if browser is None:
-        return "screenshot: skipped (no browser found; set BROWSER_PATH)"
-    png_path = html_path.with_suffix(".png")
-    png_path.unlink(missing_ok=True)
-    # A throwaway profile keeps the headless run off the user's open browser session.
-    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as profile:
-        proc = launch(
-            [
-                browser,
-                "--headless",
-                "--disable-gpu",
-                "--hide-scrollbars",
-                "--window-size=1280,1600",
-                f"--user-data-dir={profile}",
-                f"--screenshot={png_path.resolve()}",
-                html_path.resolve().as_uri(),
-            ],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-        try:
-            deadline = time.monotonic() + timeout
-            while not png_written(png_path, settle):
-                if proc.poll() is not None or time.monotonic() > deadline:
-                    break
-                time.sleep(0.5)
-        finally:
-            if proc.poll() is None:
-                proc.terminate()
-    if not png_written(png_path, 0):
-        return "screenshot: failed (browser produced no PNG)"
-    return f"screenshot: {png_path}"
-
-
-def png_written(path: Path, settle: float) -> bool:
-    """True once the file exists and its size holds steady for `settle` seconds."""
-    if not path.is_file():
-        return False
-    size = path.stat().st_size
-    time.sleep(settle)
-    return size > 0 and path.stat().st_size == size
 
 
 @tool

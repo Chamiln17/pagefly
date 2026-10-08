@@ -13,6 +13,7 @@ from agents.copywriting_agent import get_copywriting_agent_runnable
 from agents.image_analysis_agent import get_image_analysis_runnable
 from agents.marketing_angle_research_agent import get_marketing_research_runnable
 from agents.repair_agent import get_repair_runnable
+from core.html_document import DOCUMENT_END, ends_document
 from core.state import PageState
 
 logger = logging.getLogger(__name__)
@@ -54,9 +55,9 @@ def check_page(
     if soup.find("html") is None:
         return ["HTML does not parse: no <html> element."]
     problems = []
-    if not html.rstrip().lower().endswith("</html>"):
+    if not ends_document(html):
         problems.append(
-            "Text outside the HTML document: the page must end with </html>."
+            f"Text outside the HTML document: the page must end with {DOCUMENT_END}."
         )
     problems += [
         f"Layout section '{s['id']}' has no element with id=\"{s['id']}\"."

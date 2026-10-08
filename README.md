@@ -112,7 +112,7 @@ Pass `--angle "<text>"` to skip research, so no `TAVILY_API_KEY` is needed. Pass
 
 `--repair-demo` skips the graph and needs no `TAVILY_API_KEY`. It sends a fixed page with known problems (no `cta` section, an `<img>` without `alt`) to the repair agent in one model call, checks the result, and prints the problems before and after, token usage and cost.
 
-`--screenshot` saves a PNG beside the page with an installed Edge or Chrome in headless mode (`BROWSER_PATH` overrides the search). With no browser found it prints a message and carries on.
+`--screenshot` saves a PNG beside the page with an installed Edge or Chrome in headless mode (`BROWSER_PATH`, when it names an existing file, overrides the search). With no browser found, or one that fails to start, it prints a message and carries on.
 
 Recorded runs on 2026-10-08 with `deepseek/deepseek-v4.1-flash` through OpenRouter (costs are what the provider billed):
 

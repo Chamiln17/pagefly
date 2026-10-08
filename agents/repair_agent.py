@@ -28,6 +28,6 @@ def get_repair_runnable(llm: BaseChatModel):
                 ),
             ]
         )
-        return extract_html_document(str(reply.content))
+        return extract_html_document(str(reply.content), "repair")
 
     return RunnableLambda(_repair)

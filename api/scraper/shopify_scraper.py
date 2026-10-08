@@ -1,5 +1,7 @@
 import logging
-from typing import Dict
+from collections.abc import AsyncIterator
+from typing import Any, Dict, TypedDict
+
 from bs4 import BeautifulSoup
 import httpx
 
@@ -10,22 +12,28 @@ class ScrapeError(Exception):
     """Neither the product JSON nor the product page gave enough product data."""
 
 
-async def scrape_shopify_data(
-    url: str, client: httpx.AsyncClient | None = None
-) -> Dict:
+class ScrapedProduct(TypedDict):
+    product_name: str
+    product_price: float
+    currency: str
+    images: list[str]
+
+
+async def http_client() -> AsyncIterator[httpx.AsyncClient]:
+    """FastAPI dependency: the HTTP client the scraper fetches the shop with."""
+    async with httpx.AsyncClient(follow_redirects=True) as client:
+        yield client
+
+
+async def scrape_shopify_data(url: str, client: httpx.AsyncClient) -> ScrapedProduct:
     """Read Shopify's public product JSON; fall back to the product page HTML."""
-    if client is None:
-        async with httpx.AsyncClient(follow_redirects=True) as client:
-            return await _scrape(url, client)
-    return await _scrape(url, client)
-
-
-async def _scrape(url: str, client: httpx.AsyncClient) -> Dict:
     product_url = httpx.URL(url)
     json_url = product_url.copy_with(
         path=product_url.path.rstrip("/") + ".json", query=None
     )
-    product = await _get_json_product(client, json_url)
+    product = await _get_json_product(
+        client, json_url, product_url.params.get("variant")
+    )
     try:
         html = (await client.get(product_url)).content
     except httpx.HTTPError as exc:
@@ -35,23 +43,33 @@ async def _scrape(url: str, client: httpx.AsyncClient) -> Dict:
     if product:
         # Shopify's product JSON has no currency; take it from the page, else the
         # HTML extraction's USD default.
-        return product | {"currency": _page_currency(html) or "USD"}
-
-    scraped = _from_html(html)
-    if not (scraped["product_name"] and scraped["product_price"] and scraped["images"]):
+        product["currency"] = _page_currency(html) or "USD"
+    else:
+        product = _from_html(html)
+    if not (product["product_name"] and product["product_price"] and product["images"]):
         raise ScrapeError("Insufficient product data extracted.")
-    return scraped
+    return ScrapedProduct(
+        product_name=product["product_name"],
+        product_price=product["product_price"],
+        currency=product["currency"],
+        images=product["images"],
+    )
 
 
-async def _get_json_product(client: httpx.AsyncClient, json_url: httpx.URL) -> Dict:
-    """Map Shopify's `<product url>.json`; empty dict when unusable."""
+async def _get_json_product(
+    client: httpx.AsyncClient, json_url: httpx.URL, variant_id: str | None
+) -> Dict[str, Any]:
+    """Map Shopify's `<product url>.json`; empty dict when unusable. The price is
+    the variant `variant_id` names, else the first variant's."""
     try:
         response = await client.get(json_url)
         response.raise_for_status()
         product = response.json()["product"]
+        variants = product["variants"]
+        variant = next((v for v in variants if str(v["id"]) == variant_id), variants[0])
         scraped = {
             "product_name": product["title"],
-            "product_price": float(product["variants"][0]["price"]),
+            "product_price": float(variant["price"]),
             "images": [image["src"] for image in product["images"]][:6],
         }
     except (httpx.HTTPError, ValueError, KeyError, IndexError, TypeError) as exc:
@@ -69,8 +87,9 @@ def _page_currency(html: bytes) -> str | None:
     return content if isinstance(content, str) and content else None
 
 
-def _from_html(html: bytes) -> Dict:
-    """Feninekh Chaima's HTML extraction; selectors fit a few Shopify themes."""
+def _from_html(html: bytes) -> Dict[str, Any]:
+    """Reads name, price, currency and product images from the product page with
+    CSS selectors tuned to a few Shopify themes; missing fields come back empty."""
     soup = BeautifulSoup(html, "html.parser")
 
     # Extract product title
